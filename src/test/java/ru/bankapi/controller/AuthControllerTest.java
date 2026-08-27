@@ -2,7 +2,6 @@ package ru.bankapi.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -10,21 +9,32 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import ru.bankapi.config.SecurityConfig;
+import ru.bankapi.dto.auth.AuthResponse;
+import ru.bankapi.dto.auth.LoginRequest;
 import ru.bankapi.dto.auth.RegisterRequest;
 import ru.bankapi.dto.user.UserResponse;
 import ru.bankapi.enums.UserRole;
 import ru.bankapi.enums.UserStatus;
 import ru.bankapi.exception.DuplicateDataException;
 import ru.bankapi.exception.ErrorHandler;
+import ru.bankapi.exception.InvalidCredentialsException;
 import ru.bankapi.service.AuthService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 @WebMvcTest(AuthController.class)
-@Import(ErrorHandler.class)
+@Import({
+        ErrorHandler.class,
+        SecurityConfig.class
+})
 class AuthControllerTest {
 
     @Autowired
@@ -52,23 +62,23 @@ class AuthControllerTest {
         response.setStatus(UserStatus.ACTIVE);
         response.setCreatedAt(LocalDateTime.of(2026, 8, 26, 18, 30));
 
-        Mockito.when(authService.register(ArgumentMatchers.any(RegisterRequest.class)))
+        when(authService.register(any(RegisterRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(
-                        MockMvcRequestBuilders.post("/api/auth/register")
+                        post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                 )
-                .andExpect(MockMvcResultMatchers.status().isCreated())
-                .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(1))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.email").value("ivan@example.com"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.firstName").value("Иван"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.lastName").value("Иванов"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.role").value("CLIENT"))
-                .andExpect(MockMvcResultMatchers.jsonPath("$.status").value("ACTIVE"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.email").value("ivan@example.com"))
+                .andExpect(jsonPath("$.firstName").value("Иван"))
+                .andExpect(jsonPath("$.lastName").value("Иванов"))
+                .andExpect(jsonPath("$.role").value("CLIENT"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
 
-        Mockito.verify(authService).register(ArgumentMatchers.any(RegisterRequest.class));
+        verify(authService).register(any(RegisterRequest.class));
     }
 
     @Test
@@ -77,15 +87,15 @@ class AuthControllerTest {
         request.setEmail("invalid-email");
 
         mockMvc.perform(
-                        MockMvcRequestBuilders.post("/api/auth/register")
+                        post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                 )
-                .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("VALIDATION_ERROR"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
-        Mockito.verify(authService, Mockito.never())
-                .register(ArgumentMatchers.any(RegisterRequest.class));
+        verify(authService, never())
+                .register(any(RegisterRequest.class));
     }
 
     @Test
@@ -96,15 +106,15 @@ class AuthControllerTest {
         request.setPassword("123");
 
         mockMvc.perform(
-                        MockMvcRequestBuilders.post("/api/auth/register")
+                        post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                 )
-                .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("VALIDATION_ERROR"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
-        Mockito.verify(authService, Mockito.never())
-                .register(ArgumentMatchers.any(RegisterRequest.class));
+        verify(authService, never())
+                .register(any(RegisterRequest.class));
     }
 
     @Test
@@ -115,15 +125,15 @@ class AuthControllerTest {
         request.setBirthDate(LocalDate.now().plusDays(1));
 
         mockMvc.perform(
-                        MockMvcRequestBuilders.post("/api/auth/register")
+                        post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                 )
-                .andExpect(MockMvcResultMatchers.status().isBadRequest())
-                .andExpect(MockMvcResultMatchers.jsonPath("$.code").value("VALIDATION_ERROR"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
-        Mockito.verify(authService, Mockito.never())
-                .register(ArgumentMatchers.any(RegisterRequest.class));
+        verify(authService, never())
+                .register(any(RegisterRequest.class));
     }
 
     @Test
@@ -132,7 +142,7 @@ class AuthControllerTest {
 
         RegisterRequest request = createValidRequest();
 
-        Mockito.when(authService.register(ArgumentMatchers.any(RegisterRequest.class)))
+        when(authService.register(any(RegisterRequest.class)))
                 .thenThrow(
                         new DuplicateDataException(
                                 "EMAIL_ALREADY_EXISTS",
@@ -141,27 +151,118 @@ class AuthControllerTest {
                 );
 
         mockMvc.perform(
-                        MockMvcRequestBuilders.post("/api/auth/register")
+                        post("/api/auth/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request))
                 )
-                .andExpect(MockMvcResultMatchers.status().isConflict())
+                .andExpect(status().isConflict())
                 .andExpect(
-                        MockMvcResultMatchers.jsonPath("$.code")
+                        jsonPath("$.code")
                                 .value("EMAIL_ALREADY_EXISTS")
                 )
                 .andExpect(
-                        MockMvcResultMatchers.jsonPath("$.message")
+                        jsonPath("$.message")
                                 .value(
                                         "Пользователь с таким email уже существует"
                                 )
                 )
                 .andExpect(
-                        MockMvcResultMatchers.jsonPath("$.path")
+                        jsonPath("$.path")
                                 .value("/api/auth/register")
                 );
 
-        Mockito.verify(authService).register(ArgumentMatchers.any(RegisterRequest.class));
+        verify(authService).register(any(RegisterRequest.class));
+    }
+
+    @Test
+    void loginShouldReturnOkAndToken() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("ivan@example.com");
+        request.setPassword("password123");
+
+        AuthResponse response = new AuthResponse(
+                "test-jwt-token",
+                "Bearer",
+                3600L
+        );
+
+        when(authService.login(any(LoginRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.accessToken")
+                                .value("test-jwt-token")
+                )
+                .andExpect(
+                        jsonPath("$.tokenType")
+                                .value("Bearer")
+                )
+                .andExpect(
+                        jsonPath("$.expiresIn")
+                                .value(3600)
+                );
+
+        verify(authService).login(any(LoginRequest.class));
+    }
+
+    @Test
+    void loginShouldReturnUnauthorizedWhenCredentialsAreInvalid()
+            throws Exception {
+
+        LoginRequest request = new LoginRequest();
+        request.setEmail("ivan@example.com");
+        request.setPassword("wrong-password");
+
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(
+                        new InvalidCredentialsException(
+                                "Неверный email или пароль"
+                        )
+                );
+
+        mockMvc.perform(
+                        post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(
+                        jsonPath("$.code")
+                                .value("INVALID_CREDENTIALS")
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Неверный email или пароль")
+                );
+    }
+
+    @Test
+    void loginShouldReturnBadRequestWhenEmailIsInvalid()
+            throws Exception {
+
+        LoginRequest request = new LoginRequest();
+        request.setEmail("not-email");
+        request.setPassword("password123");
+
+        mockMvc.perform(
+                        post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(
+                        jsonPath("$.code")
+                                .value("VALIDATION_ERROR")
+                );
+
+        verify(authService, never())
+                .login(any(LoginRequest.class));
     }
 
     private RegisterRequest createValidRequest() {

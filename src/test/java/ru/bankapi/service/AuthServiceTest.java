@@ -9,15 +9,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.bankapi.dal.UserRepository;
+import ru.bankapi.dto.auth.AuthResponse;
+import ru.bankapi.dto.auth.LoginRequest;
 import ru.bankapi.dto.auth.RegisterRequest;
 import ru.bankapi.dto.user.UserResponse;
 import ru.bankapi.enums.UserRole;
 import ru.bankapi.enums.UserStatus;
 import ru.bankapi.exception.DuplicateDataException;
+import ru.bankapi.exception.InvalidCredentialsException;
 import ru.bankapi.mapper.UserMapper;
 import ru.bankapi.model.User;
+import ru.bankapi.security.JwtService;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -39,6 +44,9 @@ class AuthServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtService jwtService;
 
     @InjectMocks
     private AuthService authService;
@@ -176,5 +184,102 @@ class AuthServiceTest {
 
         verify(userMapper, never())
                 .toResponse(any(User.class));
+    }
+
+    @Test
+    void loginShouldReturnTokenWhenCredentialsAreValid() {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail("ivan@example.com");
+        loginRequest.setPassword("password123");
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("ivan@example.com");
+        user.setPasswordHash("hashed-password");
+
+        when(userRepository.findByEmail(loginRequest.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(
+                loginRequest.getPassword(),
+                user.getPasswordHash()
+        )).thenReturn(true);
+
+        when(jwtService.generateToken(user))
+                .thenReturn("test-jwt-token");
+
+        when(jwtService.getExpirationSeconds())
+                .thenReturn(3600L);
+
+        AuthResponse response = authService.login(loginRequest);
+
+        assertNotNull(response);
+        assertEquals("test-jwt-token", response.getAccessToken());
+        assertEquals("Bearer", response.getTokenType());
+        assertEquals(3600L, response.getExpiresIn());
+
+        verify(userRepository).findByEmail(loginRequest.getEmail());
+
+        verify(passwordEncoder).matches(
+                loginRequest.getPassword(),
+                user.getPasswordHash()
+        );
+
+        verify(jwtService).generateToken(user);
+    }
+
+    @Test
+    void loginShouldThrowExceptionWhenUserDoesNotExist() {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail("unknown@example.com");
+        loginRequest.setPassword("password123");
+
+        when(userRepository.findByEmail(loginRequest.getEmail()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login(loginRequest)
+        );
+
+        verify(userRepository).findByEmail(loginRequest.getEmail());
+
+        verify(passwordEncoder, never())
+                .matches(anyString(), anyString());
+
+        verify(jwtService, never())
+                .generateToken(any(User.class));
+    }
+
+    @Test
+    void loginShouldThrowExceptionWhenPasswordIsIncorrect() {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail("ivan@example.com");
+        loginRequest.setPassword("wrong-password");
+
+        User user = new User();
+        user.setEmail("ivan@example.com");
+        user.setPasswordHash("hashed-password");
+
+        when(userRepository.findByEmail(loginRequest.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(
+                loginRequest.getPassword(),
+                user.getPasswordHash()
+        )).thenReturn(false);
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.login(loginRequest)
+        );
+
+        verify(passwordEncoder).matches(
+                loginRequest.getPassword(),
+                user.getPasswordHash()
+        );
+
+        verify(jwtService, never())
+                .generateToken(any(User.class));
     }
 }

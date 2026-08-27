@@ -54,4 +54,22 @@ public class ErrorHandler {
 
         return ResponseEntity.status(status).body(response);
     }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "INVALID_CREDENTIALS",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(status).body(response);
+    }
 }
