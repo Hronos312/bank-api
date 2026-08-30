@@ -13,22 +13,14 @@ import java.time.LocalDateTime;
 public class UserResponse {
 
     private Long id;
-
     private String email;
-
     private String firstName;
-
     private String lastName;
-
     private String middleName;
-
     private LocalDate birthDate;
-
     private String phone;
-
     private UserRole role;
-
     private UserStatus status;
-
     private LocalDateTime createdAt;
+
 }
