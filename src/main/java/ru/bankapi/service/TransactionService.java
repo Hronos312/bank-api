@@ -18,6 +18,8 @@ import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -71,6 +73,21 @@ public class TransactionService {
         return transactionMapper.toResponse(savedTransaction);
     }
 
+    @Transactional(readOnly = true)
+    public List<TransactionResponse> getTransactionHistory(Long accountId, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        bankAccountRepository.findByIdAndUserId(accountId, user.getId())
+                .orElseThrow(() -> new NotFoundException("Счёт не найден"));
+
+        return transactionRepository
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(accountId, accountId)
+                .stream()
+                .map(transactionMapper::toResponse)
+                .toList();
+    }
+
     private User getActiveUser(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
@@ -84,7 +101,7 @@ public class TransactionService {
 
     private BankAccount getActiveAccount(Long accountId, Long userId) {
         BankAccount account = bankAccountRepository
-                .findByIdAndUserId(accountId, userId)
+                .findByIdAndUserIdForUpdate(accountId, userId)
                 .orElseThrow(() -> new NotFoundException("Счёт не найден"));
 
         if (account.getStatus() != AccountStatus.ACTIVE) {

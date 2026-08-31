@@ -20,6 +20,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+admin:
+  bootstrap:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    first-name: ${ADMIN_FIRST_NAME:System}
+    last-name: ${ADMIN_LAST_NAME:Administrator}
+    birth-date: ${ADMIN_BIRTH_DATE:1970-01-01}
+    phone: ${ADMIN_PHONE:}
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:3600000}

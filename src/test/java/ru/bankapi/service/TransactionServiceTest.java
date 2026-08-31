@@ -22,10 +22,12 @@ import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,14 +62,12 @@ class TransactionServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+        when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
 
         when(transactionRepository.save(any(BankTransaction.class)))
                 .thenAnswer(invocation -> {
-                    BankTransaction transaction =
-                            invocation.getArgument(0);
-
+                    BankTransaction transaction = invocation.getArgument(0);
                     transaction.setId(20L);
                     return transaction;
                 });
@@ -81,12 +81,11 @@ class TransactionServiceTest {
         when(transactionMapper.toResponse(any(BankTransaction.class)))
                 .thenReturn(response);
 
-        TransactionResponse result =
-                transactionService.deposit(
-                        10L,
-                        email,
-                        request
-                );
+        TransactionResponse result = transactionService.deposit(
+                10L,
+                email,
+                request
+        );
 
         assertEquals(
                 0,
@@ -110,6 +109,7 @@ class TransactionServiceTest {
         );
 
         assertNull(transaction.getSourceAccount());
+
         assertEquals(
                 account,
                 transaction.getDestinationAccount()
@@ -125,6 +125,9 @@ class TransactionServiceTest {
                 "Пополнение",
                 transaction.getDescription()
         );
+
+        verify(bankAccountRepository)
+                .findByIdAndUserIdForUpdate(10L, 1L);
     }
 
     @Test
@@ -141,13 +144,11 @@ class TransactionServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+        when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
 
         when(transactionRepository.save(any(BankTransaction.class)))
-                .thenAnswer(invocation ->
-                        invocation.getArgument(0)
-                );
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         when(transactionMapper.toResponse(any(BankTransaction.class)))
                 .thenReturn(new TransactionResponse());
@@ -189,6 +190,14 @@ class TransactionServiceTest {
                 new BigDecimal("250.00")
                         .compareTo(transaction.getAmount())
         );
+
+        assertEquals(
+                "Снятие",
+                transaction.getDescription()
+        );
+
+        verify(bankAccountRepository)
+                .findByIdAndUserIdForUpdate(10L, 1L);
     }
 
     @Test
@@ -204,7 +213,7 @@ class TransactionServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+        when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
 
         assertThrows(
@@ -249,7 +258,7 @@ class TransactionServiceTest {
         );
 
         verify(bankAccountRepository, never())
-                .findByIdAndUserId(anyLong(), anyLong());
+                .findByIdAndUserIdForUpdate(anyLong(), anyLong());
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
@@ -269,7 +278,7 @@ class TransactionServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+        when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
 
         assertThrows(
@@ -297,10 +306,8 @@ class TransactionServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                99L,
-                1L
-        )).thenReturn(Optional.empty());
+        when(bankAccountRepository.findByIdAndUserIdForUpdate(99L, 1L))
+                .thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
@@ -313,6 +320,159 @@ class TransactionServiceTest {
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
+    }
+
+    @Test
+    void getTransactionHistoryShouldReturnCurrentUserAccountTransactions() {
+        String email = "ivan@example.com";
+
+        User user = createActiveUser(email);
+        BankAccount account = createActiveAccount(user, "1000.00");
+
+        BankTransaction firstTransaction = new BankTransaction();
+        firstTransaction.setId(20L);
+        firstTransaction.setType(TransactionType.WITHDRAWAL);
+
+        BankTransaction secondTransaction = new BankTransaction();
+        secondTransaction.setId(19L);
+        secondTransaction.setType(TransactionType.DEPOSIT);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
+                        10L,
+                        10L
+                ))
+                .thenReturn(List.of(
+                        firstTransaction,
+                        secondTransaction
+                ));
+
+        TransactionResponse firstResponse =
+                new TransactionResponse();
+
+        firstResponse.setId(20L);
+        firstResponse.setType(TransactionType.WITHDRAWAL);
+
+        TransactionResponse secondResponse =
+                new TransactionResponse();
+
+        secondResponse.setId(19L);
+        secondResponse.setType(TransactionType.DEPOSIT);
+
+        when(transactionMapper.toResponse(firstTransaction))
+                .thenReturn(firstResponse);
+
+        when(transactionMapper.toResponse(secondTransaction))
+                .thenReturn(secondResponse);
+
+        List<TransactionResponse> result =
+                transactionService.getTransactionHistory(
+                        10L,
+                        email
+                );
+
+        assertEquals(2, result.size());
+
+        assertEquals(
+                20L,
+                result.get(0).getId()
+        );
+
+        assertEquals(
+                TransactionType.WITHDRAWAL,
+                result.get(0).getType()
+        );
+
+        assertEquals(
+                19L,
+                result.get(1).getId()
+        );
+
+        assertEquals(
+                TransactionType.DEPOSIT,
+                result.get(1).getType()
+        );
+
+        verify(bankAccountRepository)
+                .findByIdAndUserId(10L, 1L);
+
+        verify(transactionRepository)
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
+                        10L,
+                        10L
+                );
+    }
+
+    @Test
+    void getTransactionHistoryShouldReturnEmptyListWhenAccountHasNoTransactions() {
+        String email = "ivan@example.com";
+
+        User user = createActiveUser(email);
+        BankAccount account = createActiveAccount(user, "0.00");
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
+                .thenReturn(Optional.of(account));
+
+        when(transactionRepository
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
+                        10L,
+                        10L
+                ))
+                .thenReturn(List.of());
+
+        List<TransactionResponse> result =
+                transactionService.getTransactionHistory(
+                        10L,
+                        email
+                );
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+
+        verify(transactionRepository)
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
+                        10L,
+                        10L
+                );
+    }
+
+    @Test
+    void getTransactionHistoryShouldThrowWhenAccountDoesNotBelongToCurrentUser() {
+        String email = "ivan@example.com";
+
+        User user = createActiveUser(email);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findByIdAndUserId(
+                99L,
+                1L
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> transactionService
+                        .getTransactionHistory(
+                                99L,
+                                email
+                        )
+        );
+
+        verify(transactionRepository, never())
+                .findAllBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
+                        anyLong(),
+                        anyLong()
+                );
     }
 
     private User createActiveUser(String email) {

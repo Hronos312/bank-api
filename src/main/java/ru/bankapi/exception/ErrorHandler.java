@@ -108,4 +108,40 @@ public class ErrorHandler {
 
         return ResponseEntity.status(status).body(response);
     }
+
+    @ExceptionHandler(AccountBlockedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountBlocked(
+            AccountBlockedException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.FORBIDDEN;
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "ACCOUNT_BLOCKED",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(status).body(response);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(
+            BadRequestException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                status.value(),
+                "BAD_REQUEST",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(status)    .body(response);
+    }
 }

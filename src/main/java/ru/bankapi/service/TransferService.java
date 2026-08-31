@@ -31,22 +31,37 @@ public class TransferService {
     public TransactionResponse transfer(Long sourceAccountId, String email, TransferRequest request) {
         User user = getActiveUser(email);
 
-        BankAccount sourceAccount = bankAccountRepository.findByIdAndUserId(sourceAccountId, user.getId())
-                .orElseThrow(() -> new NotFoundException("Счёт отправителя не найден"));
+        Long destinationAccountId = bankAccountRepository.findIdByAccountNumber(request.getDestinationAccountNumber())
+                .orElseThrow(() -> new NotFoundException("Счёт получателя не найден"));
+
+        if (sourceAccountId.equals(destinationAccountId)) {
+            throw new InvalidOperationException("Нельзя перевести деньги на тот же счёт");
+        }
+
+        Long firstAccountId = Math.min(sourceAccountId, destinationAccountId);
+
+        Long secondAccountId = Math.max(sourceAccountId, destinationAccountId);
+
+        BankAccount firstAccount = bankAccountRepository.findByIdForUpdate(firstAccountId)
+                .orElseThrow(() -> new NotFoundException("Счёт не найден"));
+
+        BankAccount secondAccount = bankAccountRepository.findByIdForUpdate(secondAccountId)
+                .orElseThrow(() -> new NotFoundException("Счёт не найден"));
+
+        BankAccount sourceAccount = sourceAccountId.equals(firstAccountId) ? firstAccount : secondAccount;
+
+        BankAccount destinationAccount = destinationAccountId.equals(firstAccountId) ? firstAccount : secondAccount;
+
+        if (!sourceAccount.getUser().getId().equals(user.getId())) {
+            throw new NotFoundException("Счёт отправителя не найден");
+        }
 
         if (sourceAccount.getStatus() != AccountStatus.ACTIVE) {
             throw new InvalidOperationException("Переводы доступны только с активного счёта");
         }
 
-        BankAccount destinationAccount = bankAccountRepository.findByAccountNumber(request.getDestinationAccountNumber())
-                        .orElseThrow(() -> new NotFoundException("Счёт получателя не найден"));
-
         if (destinationAccount.getStatus() != AccountStatus.ACTIVE) {
             throw new InvalidOperationException("Счёт получателя недоступен для переводов");
-        }
-
-        if (sourceAccount.getId().equals(destinationAccount.getId())) {
-            throw new InvalidOperationException("Нельзя перевести деньги на тот же счёт");
         }
 
         if (sourceAccount.getBalance().compareTo(request.getAmount()) < 0) {

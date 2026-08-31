@@ -3,6 +3,7 @@ package ru.bankapi.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,70 +52,74 @@ class TransferServiceTest {
     void transferShouldMoveMoneyAndCreateTransferTransaction() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
 
-        BankAccount source =
-                createActiveAccount(
-                        10L,
-                        user,
-                        "1000.00",
-                        "40817810000000000001"
-                );
+        User recipient = createUser(
+                2L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
 
-        BankAccount destination =
-                createActiveAccount(
-                        20L,
-                        new User(),
-                        "300.00",
-                        "40817810000000000002"
-                );
+        BankAccount source = createAccount(
+                10L,
+                user,
+                "1000.00",
+                "40817810000000000001"
+        );
+
+        BankAccount destination = createAccount(
+                20L,
+                recipient,
+                "300.00",
+                "40817810000000000002"
+        );
 
         TransferRequest request = createRequest(
-                "40817810000000000002",
+                destination.getAccountNumber(),
                 "400.00"
         );
+
         request.setDescription("Перевод");
 
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                10L,
-                1L
-        )).thenReturn(Optional.of(source));
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(20L));
 
-        when(bankAccountRepository.findByAccountNumber(
-                "40817810000000000002"
-        )).thenReturn(Optional.of(destination));
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(source));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(destination));
 
         when(transactionRepository.save(any(BankTransaction.class)))
                 .thenAnswer(invocation -> {
-                    BankTransaction transaction =
-                            invocation.getArgument(0);
-
+                    BankTransaction transaction = invocation.getArgument(0);
                     transaction.setId(30L);
                     return transaction;
                 });
 
-        TransactionResponse response =
-                new TransactionResponse();
-
+        TransactionResponse response = new TransactionResponse();
         response.setId(30L);
         response.setType(TransactionType.TRANSFER);
         response.setSourceAccountId(10L);
         response.setDestinationAccountId(20L);
         response.setAmount(new BigDecimal("400.00"));
 
-        when(transactionMapper.toResponse(
-                any(BankTransaction.class)
-        )).thenReturn(response);
+        when(transactionMapper.toResponse(any(BankTransaction.class)))
+                .thenReturn(response);
 
-        TransactionResponse result =
-                transferService.transfer(
-                        10L,
-                        email,
-                        request
-                );
+        TransactionResponse result = transferService.transfer(
+                10L,
+                email,
+                request
+        );
 
         assertEquals(
                 0,
@@ -133,15 +139,12 @@ class TransferServiceTest {
         );
 
         ArgumentCaptor<BankTransaction> captor =
-                ArgumentCaptor.forClass(
-                        BankTransaction.class
-                );
+                ArgumentCaptor.forClass(BankTransaction.class);
 
         verify(transactionRepository)
                 .save(captor.capture());
 
-        BankTransaction transaction =
-                captor.getValue();
+        BankTransaction transaction = captor.getValue();
 
         assertEquals(
                 TransactionType.TRANSFER,
@@ -171,43 +174,138 @@ class TransferServiceTest {
     }
 
     @Test
+    void transferShouldLockAccountsInAscendingIdOrder() {
+        String email = "ivan@example.com";
+
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
+
+        User recipient = createUser(
+                2L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
+
+        BankAccount source = createAccount(
+                20L,
+                user,
+                "1000.00",
+                "40817810000000000020"
+        );
+
+        BankAccount destination = createAccount(
+                10L,
+                recipient,
+                "300.00",
+                "40817810000000000010"
+        );
+
+        TransferRequest request = createRequest(
+                destination.getAccountNumber(),
+                "100.00"
+        );
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(10L));
+
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(destination));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(source));
+
+        when(transactionRepository.save(any(BankTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(transactionMapper.toResponse(any(BankTransaction.class)))
+                .thenReturn(new TransactionResponse());
+
+        transferService.transfer(
+                20L,
+                email,
+                request
+        );
+
+        InOrder inOrder = inOrder(bankAccountRepository);
+
+        inOrder.verify(bankAccountRepository)
+                .findIdByAccountNumber(
+                        destination.getAccountNumber()
+                );
+
+        inOrder.verify(bankAccountRepository)
+                .findByIdForUpdate(10L);
+
+        inOrder.verify(bankAccountRepository)
+                .findByIdForUpdate(20L);
+
+        assertEquals(
+                0,
+                new BigDecimal("900.00")
+                        .compareTo(source.getBalance())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("400.00")
+                        .compareTo(destination.getBalance())
+        );
+    }
+
+    @Test
     void transferShouldThrowWhenBalanceIsInsufficient() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
 
-        BankAccount source =
-                createActiveAccount(
-                        10L,
-                        user,
-                        "100.00",
-                        "40817810000000000001"
-                );
+        User recipient = createUser(
+                2L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
 
-        BankAccount destination =
-                createActiveAccount(
-                        20L,
-                        new User(),
-                        "300.00",
-                        "40817810000000000002"
-                );
+        BankAccount source = createAccount(
+                10L,
+                user,
+                "100.00",
+                "40817810000000000001"
+        );
+
+        BankAccount destination = createAccount(
+                20L,
+                recipient,
+                "300.00",
+                "40817810000000000002"
+        );
 
         TransferRequest request = createRequest(
-                "40817810000000000002",
+                destination.getAccountNumber(),
                 "500.00"
         );
 
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                10L,
-                1L
-        )).thenReturn(Optional.of(source));
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(20L));
 
-        when(bankAccountRepository.findByAccountNumber(
-                "40817810000000000002"
-        )).thenReturn(Optional.of(destination));
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(source));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(destination));
 
         assertThrows(
                 InvalidOperationException.class,
@@ -235,55 +333,14 @@ class TransferServiceTest {
     }
 
     @Test
-    void transferShouldThrowWhenSourceAccountDoesNotBelongToUser() {
-        String email = "ivan@example.com";
-
-        User user = createActiveUser(email);
-
-        TransferRequest request = createRequest(
-                "40817810000000000002",
-                "100.00"
-        );
-
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
-
-        when(bankAccountRepository.findByIdAndUserId(
-                99L,
-                1L
-        )).thenReturn(Optional.empty());
-
-        assertThrows(
-                NotFoundException.class,
-                () -> transferService.transfer(
-                        99L,
-                        email,
-                        request
-                )
-        );
-
-        verify(
-                bankAccountRepository,
-                never()
-        ).findByAccountNumber(anyString());
-
-        verify(transactionRepository, never())
-                .save(any(BankTransaction.class));
-    }
-
-    @Test
     void transferShouldThrowWhenDestinationAccountDoesNotExist() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
-
-        BankAccount source =
-                createActiveAccount(
-                        10L,
-                        user,
-                        "1000.00",
-                        "40817810000000000001"
-                );
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
 
         TransferRequest request = createRequest(
                 "40817810000000000099",
@@ -293,17 +350,186 @@ class TransferServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                10L,
-                1L
-        )).thenReturn(Optional.of(source));
-
-        when(bankAccountRepository.findByAccountNumber(
+        when(bankAccountRepository.findIdByAccountNumber(
                 "40817810000000000099"
         )).thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
+                () -> transferService.transfer(
+                        10L,
+                        email,
+                        request
+                )
+        );
+
+        verify(bankAccountRepository, never())
+                .findByIdForUpdate(anyLong());
+
+        verify(transactionRepository, never())
+                .save(any(BankTransaction.class));
+    }
+
+    @Test
+    void transferShouldThrowWhenSourceAccountDoesNotExist() {
+        String email = "ivan@example.com";
+
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
+
+        TransferRequest request = createRequest(
+                "40817810000000000020",
+                "100.00"
+        );
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findIdByAccountNumber(
+                "40817810000000000020"
+        )).thenReturn(Optional.of(20L));
+
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> transferService.transfer(
+                        10L,
+                        email,
+                        request
+                )
+        );
+
+        verify(bankAccountRepository, never())
+                .findByIdForUpdate(20L);
+
+        verify(transactionRepository, never())
+                .save(any(BankTransaction.class));
+    }
+
+    @Test
+    void transferShouldThrowWhenSourceAccountDoesNotBelongToUser() {
+        String email = "ivan@example.com";
+
+        User currentUser = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
+
+        User anotherUser = createUser(
+                2L,
+                "another@example.com",
+                UserStatus.ACTIVE
+        );
+
+        User recipient = createUser(
+                3L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
+
+        BankAccount source = createAccount(
+                10L,
+                anotherUser,
+                "1000.00",
+                "40817810000000000001"
+        );
+
+        BankAccount destination = createAccount(
+                20L,
+                recipient,
+                "300.00",
+                "40817810000000000002"
+        );
+
+        TransferRequest request = createRequest(
+                destination.getAccountNumber(),
+                "100.00"
+        );
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(currentUser));
+
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(20L));
+
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(source));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(destination));
+
+        assertThrows(
+                NotFoundException.class,
+                () -> transferService.transfer(
+                        10L,
+                        email,
+                        request
+                )
+        );
+
+        verify(transactionRepository, never())
+                .save(any(BankTransaction.class));
+    }
+
+    @Test
+    void transferShouldThrowWhenSourceAccountIsBlocked() {
+        String email = "ivan@example.com";
+
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
+
+        User recipient = createUser(
+                2L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
+
+        BankAccount source = createAccount(
+                10L,
+                user,
+                "1000.00",
+                "40817810000000000001"
+        );
+
+        source.setStatus(AccountStatus.BLOCKED);
+
+        BankAccount destination = createAccount(
+                20L,
+                recipient,
+                "300.00",
+                "40817810000000000002"
+        );
+
+        TransferRequest request = createRequest(
+                destination.getAccountNumber(),
+                "100.00"
+        );
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(20L));
+
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(source));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(destination));
+
+        assertThrows(
+                InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
                         email,
@@ -319,42 +545,51 @@ class TransferServiceTest {
     void transferShouldThrowWhenDestinationAccountIsBlocked() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
 
-        BankAccount source =
-                createActiveAccount(
-                        10L,
-                        user,
-                        "1000.00",
-                        "40817810000000000001"
-                );
+        User recipient = createUser(
+                2L,
+                "recipient@example.com",
+                UserStatus.ACTIVE
+        );
 
-        BankAccount destination =
-                createActiveAccount(
-                        20L,
-                        new User(),
-                        "300.00",
-                        "40817810000000000002"
-                );
+        BankAccount source = createAccount(
+                10L,
+                user,
+                "1000.00",
+                "40817810000000000001"
+        );
+
+        BankAccount destination = createAccount(
+                20L,
+                recipient,
+                "300.00",
+                "40817810000000000002"
+        );
 
         destination.setStatus(AccountStatus.BLOCKED);
 
         TransferRequest request = createRequest(
-                "40817810000000000002",
+                destination.getAccountNumber(),
                 "100.00"
         );
 
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                10L,
-                1L
-        )).thenReturn(Optional.of(source));
+        when(bankAccountRepository.findIdByAccountNumber(
+                destination.getAccountNumber()
+        )).thenReturn(Optional.of(20L));
 
-        when(bankAccountRepository.findByAccountNumber(
-                "40817810000000000002"
-        )).thenReturn(Optional.of(destination));
+        when(bankAccountRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(source));
+
+        when(bankAccountRepository.findByIdForUpdate(20L))
+                .thenReturn(Optional.of(destination));
 
         assertThrows(
                 InvalidOperationException.class,
@@ -373,15 +608,11 @@ class TransferServiceTest {
     void transferShouldThrowWhenSourceAndDestinationAreSameAccount() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
-
-        BankAccount account =
-                createActiveAccount(
-                        10L,
-                        user,
-                        "1000.00",
-                        "40817810000000000001"
-                );
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.ACTIVE
+        );
 
         TransferRequest request = createRequest(
                 "40817810000000000001",
@@ -391,14 +622,9 @@ class TransferServiceTest {
         when(userRepository.findByEmail(email))
                 .thenReturn(Optional.of(user));
 
-        when(bankAccountRepository.findByIdAndUserId(
-                10L,
-                1L
-        )).thenReturn(Optional.of(account));
-
-        when(bankAccountRepository.findByAccountNumber(
+        when(bankAccountRepository.findIdByAccountNumber(
                 "40817810000000000001"
-        )).thenReturn(Optional.of(account));
+        )).thenReturn(Optional.of(10L));
 
         assertThrows(
                 InvalidOperationException.class,
@@ -409,11 +635,8 @@ class TransferServiceTest {
                 )
         );
 
-        assertEquals(
-                0,
-                new BigDecimal("1000.00")
-                        .compareTo(account.getBalance())
-        );
+        verify(bankAccountRepository, never())
+                .findByIdForUpdate(anyLong());
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
@@ -423,8 +646,11 @@ class TransferServiceTest {
     void transferShouldThrowWhenUserIsBlocked() {
         String email = "ivan@example.com";
 
-        User user = createActiveUser(email);
-        user.setStatus(UserStatus.BLOCKED);
+        User user = createUser(
+                1L,
+                email,
+                UserStatus.BLOCKED
+        );
 
         TransferRequest request = createRequest(
                 "40817810000000000002",
@@ -443,26 +669,27 @@ class TransferServiceTest {
                 )
         );
 
-        verify(
-                bankAccountRepository,
-                never()
-        ).findByIdAndUserId(anyLong(), anyLong());
+        verifyNoInteractions(bankAccountRepository);
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
     }
 
-    private User createActiveUser(String email) {
+    private User createUser(
+            Long id,
+            String email,
+            UserStatus status
+    ) {
         User user = new User();
 
-        user.setId(1L);
+        user.setId(id);
         user.setEmail(email);
-        user.setStatus(UserStatus.ACTIVE);
+        user.setStatus(status);
 
         return user;
     }
 
-    private BankAccount createActiveAccount(
+    private BankAccount createAccount(
             Long id,
             User user,
             String balance,
@@ -483,13 +710,15 @@ class TransferServiceTest {
             String destinationAccountNumber,
             String amount
     ) {
-        TransferRequest request =
-                new TransferRequest();
+        TransferRequest request = new TransferRequest();
 
         request.setDestinationAccountNumber(
                 destinationAccountNumber
         );
-        request.setAmount(new BigDecimal(amount));
+
+        request.setAmount(
+                new BigDecimal(amount)
+        );
 
         return request;
     }

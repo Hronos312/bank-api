@@ -13,15 +13,18 @@ import ru.bankapi.dto.transaction.TransactionResponse;
 import ru.bankapi.enums.TransactionType;
 import ru.bankapi.exception.ErrorHandler;
 import ru.bankapi.exception.InvalidOperationException;
+import ru.bankapi.exception.NotFoundException;
 import ru.bankapi.security.JwtAuthenticationFilter;
 import ru.bankapi.service.TransactionService;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -240,6 +243,151 @@ class TransactionControllerTest {
                 .andExpect(
                         jsonPath("$.message")
                                 .value("Недостаточно средств")
+                );
+    }
+
+    @Test
+    @WithMockUser(
+            username = "ivan@example.com",
+            roles = "CLIENT"
+    )
+    void getTransactionHistoryShouldReturnOk()
+            throws Exception {
+
+        TransactionResponse first =
+                new TransactionResponse();
+
+        first.setId(20L);
+        first.setType(TransactionType.WITHDRAWAL);
+        first.setSourceAccountId(10L);
+        first.setAmount(new BigDecimal("250.00"));
+        first.setDescription("Снятие");
+
+        TransactionResponse second =
+                new TransactionResponse();
+
+        second.setId(19L);
+        second.setType(TransactionType.DEPOSIT);
+        second.setDestinationAccountId(10L);
+        second.setAmount(new BigDecimal("1000.00"));
+        second.setDescription("Пополнение");
+
+        when(transactionService.getTransactionHistory(
+                10L,
+                "ivan@example.com"
+        )).thenReturn(List.of(first, second));
+
+        mockMvc.perform(
+                        get("/api/accounts/10/transactions")
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.length()")
+                                .value(2)
+                )
+                .andExpect(
+                        jsonPath("$[0].id")
+                                .value(20)
+                )
+                .andExpect(
+                        jsonPath("$[0].type")
+                                .value("WITHDRAWAL")
+                )
+                .andExpect(
+                        jsonPath("$[0].sourceAccountId")
+                                .value(10)
+                )
+                .andExpect(
+                        jsonPath("$[0].amount")
+                                .value(250.00)
+                )
+                .andExpect(
+                        jsonPath("$[1].id")
+                                .value(19)
+                )
+                .andExpect(
+                        jsonPath("$[1].type")
+                                .value("DEPOSIT")
+                )
+                .andExpect(
+                        jsonPath("$[1].destinationAccountId")
+                                .value(10)
+                )
+                .andExpect(
+                        jsonPath("$[1].amount")
+                                .value(1000.00)
+                );
+
+        verify(transactionService)
+                .getTransactionHistory(
+                        10L,
+                        "ivan@example.com"
+                );
+    }
+
+    @Test
+    @WithMockUser(
+            username = "ivan@example.com",
+            roles = "CLIENT"
+    )
+    void getTransactionHistoryShouldReturnEmptyList()
+            throws Exception {
+
+        when(transactionService.getTransactionHistory(
+                10L,
+                "ivan@example.com"
+        )).thenReturn(List.of());
+
+        mockMvc.perform(
+                        get("/api/accounts/10/transactions")
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.length()")
+                                .value(0)
+                );
+
+        verify(transactionService)
+                .getTransactionHistory(
+                        10L,
+                        "ivan@example.com"
+                );
+    }
+
+    @Test
+    @WithMockUser(
+            username = "ivan@example.com",
+            roles = "CLIENT"
+    )
+    void getTransactionHistoryShouldReturnNotFoundWhenAccountIsUnavailable()
+            throws Exception {
+
+        when(transactionService.getTransactionHistory(
+                99L,
+                "ivan@example.com"
+        )).thenThrow(
+                new NotFoundException(
+                        "Счёт не найден"
+                )
+        );
+
+        mockMvc.perform(
+                        get("/api/accounts/99/transactions")
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(
+                        jsonPath("$.code")
+                                .value("NOT_FOUND")
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Счёт не найден")
+                );
+
+        verify(transactionService)
+                .getTransactionHistory(
+                        99L,
+                        "ivan@example.com"
                 );
     }
 }
