@@ -280,6 +280,33 @@ class AdminUserServiceTest {
                 .toResponse(any(User.class));
     }
 
+    @Test
+    void blockUserShouldThrowWhenUserIsAdmin() {
+        User admin = new User();
+        admin.setId(1L);
+        admin.setRole(UserRole.ADMIN);
+        admin.setStatus(UserStatus.ACTIVE);
+
+        when(userRepository.findById(1L))
+                .thenReturn(Optional.of(admin));
+
+        InvalidOperationException exception =
+                assertThrows(
+                        InvalidOperationException.class,
+                        () -> adminUserService.blockUser(1L)
+                );
+
+        assertEquals(
+                "Администратора нельзя заблокировать",
+                exception.getMessage()
+        );
+
+        assertEquals(
+                UserStatus.ACTIVE,
+                admin.getStatus()
+        );
+    }
+
     private User createUser(
             Long id,
             String email,

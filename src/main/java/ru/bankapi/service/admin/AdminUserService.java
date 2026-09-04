@@ -50,6 +50,10 @@ public class AdminUserService {
     public UserResponse blockUser(Long userId) {
         User user = getUserById(userId);
 
+        if (user.getRole() == UserRole.ADMIN) {
+            throw new InvalidOperationException("Администратора нельзя заблокировать");
+        }
+
         if (user.getStatus() == UserStatus.BLOCKED) {
             throw new InvalidOperationException("Пользователь уже заблокирован");
         }
