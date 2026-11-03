@@ -17,6 +17,7 @@ import ru.bankapi.mapper.BankTransactionMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
+import ru.bankapi.service.outbox.OutboxService;
 
 import java.util.List;
 
@@ -28,6 +29,7 @@ public class TransactionService {
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
     private final BankTransactionMapper transactionMapper;
+    private final OutboxService outboxService;
 
     @Transactional
     public TransactionResponse deposit(Long accountId, String email, MoneyOperationRequest request) {
@@ -45,6 +47,8 @@ public class TransactionService {
         transaction.setDescription(request.getDescription());
 
         BankTransaction savedTransaction = transactionRepository.save(transaction);
+
+        outboxService.recordBankTransaction(savedTransaction);
 
         return transactionMapper.toResponse(savedTransaction);
     }
@@ -69,6 +73,8 @@ public class TransactionService {
         transaction.setDescription(request.getDescription());
 
         BankTransaction savedTransaction = transactionRepository.save(transaction);
+
+        outboxService.recordBankTransaction(savedTransaction);
 
         return transactionMapper.toResponse(savedTransaction);
     }

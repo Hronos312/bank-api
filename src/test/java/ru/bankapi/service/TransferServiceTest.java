@@ -21,6 +21,7 @@ import ru.bankapi.mapper.BankTransactionMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
+import ru.bankapi.service.outbox.OutboxService;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -44,6 +45,9 @@ class TransferServiceTest {
 
     @Mock
     private BankTransactionMapper transactionMapper;
+
+    @Mock
+    private OutboxService outboxService;
 
     @InjectMocks
     private TransferService transferService;
@@ -170,6 +174,10 @@ class TransferServiceTest {
         assertEquals(
                 "Перевод",
                 transaction.getDescription()
+        );
+
+        verify(outboxService).recordBankTransaction(
+                any(BankTransaction.class)
         );
     }
 
@@ -330,6 +338,8 @@ class TransferServiceTest {
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
+
+        verifyNoInteractions(outboxService);
     }
 
     @Test

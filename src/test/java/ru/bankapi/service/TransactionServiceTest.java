@@ -20,6 +20,7 @@ import ru.bankapi.mapper.BankTransactionMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
+import ru.bankapi.service.outbox.OutboxService;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,6 +45,9 @@ class TransactionServiceTest {
 
     @Mock
     private BankTransactionMapper transactionMapper;
+
+    @Mock
+    private OutboxService outboxService;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -128,6 +132,10 @@ class TransactionServiceTest {
 
         verify(bankAccountRepository)
                 .findByIdAndUserIdForUpdate(10L, 1L);
+
+        verify(outboxService).recordBankTransaction(
+                any(BankTransaction.class)
+        );
     }
 
     @Test
@@ -198,6 +206,10 @@ class TransactionServiceTest {
 
         verify(bankAccountRepository)
                 .findByIdAndUserIdForUpdate(10L, 1L);
+
+        verify(outboxService).recordBankTransaction(
+                any(BankTransaction.class)
+        );
     }
 
     @Test
@@ -233,6 +245,8 @@ class TransactionServiceTest {
 
         verify(transactionRepository, never())
                 .save(any(BankTransaction.class));
+
+        verifyNoInteractions(outboxService);
     }
 
     @Test

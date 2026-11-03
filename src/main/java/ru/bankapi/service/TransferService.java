@@ -17,6 +17,7 @@ import ru.bankapi.mapper.BankTransactionMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.User;
+import ru.bankapi.service.outbox.OutboxService;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class TransferService {
     private final BankTransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final BankTransactionMapper transactionMapper;
+    private final OutboxService outboxService;
 
     @Transactional
     public TransactionResponse transfer(Long sourceAccountId, String email, TransferRequest request) {
@@ -81,6 +83,8 @@ public class TransferService {
         transaction.setDescription(request.getDescription());
 
         BankTransaction savedTransaction = transactionRepository.save(transaction);
+
+        outboxService.recordBankTransaction(savedTransaction);
 
         return transactionMapper.toResponse(savedTransaction);
     }
