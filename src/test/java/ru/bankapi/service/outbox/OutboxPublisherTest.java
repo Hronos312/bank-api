@@ -1,115 +1,66 @@
 package ru.bankapi.service.outbox;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
-import ru.bankapi.dal.OutboxEventRepository;
-import ru.bankapi.model.OutboxEvent;
+import ru.bankapi.service.outbox.OutboxPublicationStore.Publication;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxPublisherTest {
 
+    private final Publication event = new Publication(UUID.randomUUID(), "bank.transactions.v1",
+            "account-1", "{\"message\":\"test\"}", 1);
+
     @Mock
-    private OutboxEventRepository outboxRepository;
+    private OutboxPublicationStore publicationStore;
 
     @Mock
     private KafkaTemplate<String, String> kafkaTemplate;
-
-    @Mock
-    private ObjectMapper objectMapper;
 
     @InjectMocks
     private OutboxPublisher publisher;
 
     @Test
-    void shouldMarkEventAsPublishedAfterSuccessfulSend()
-            throws Exception {
-
-        OutboxEvent event = createEvent();
-
-        when(outboxRepository.lockNextUnpublished())
-                .thenReturn(Optional.of(event));
-
-        when(objectMapper.writeValueAsString(event.getPayload()))
-                .thenReturn("{\"message\":\"test\"}");
-
-        when(kafkaTemplate.send(
-                event.getTopic(),
-                event.getEventKey(),
-                "{\"message\":\"test\"}"
-        )).thenReturn(CompletableFuture.completedFuture(null));
+    void shouldMarkEventAsPublishedAfterSuccessfulSend() {
+        when(publicationStore.claimNext()).thenReturn(Optional.of(event));
+        when(kafkaTemplate.send(event.topic(), event.key(), event.payload()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        when(publicationStore.markPublished(event)).thenReturn(true);
 
         publisher.publishNext();
 
-        assertEquals(1, event.getAttempts());
-        assertNotNull(event.getPublishedAt());
-
-        verify(kafkaTemplate).send(
-                event.getTopic(),
-                event.getEventKey(),
-                "{\"message\":\"test\"}"
-        );
+        var order = inOrder(publicationStore, kafkaTemplate);
+        order.verify(publicationStore).claimNext();
+        order.verify(kafkaTemplate).send(event.topic(), event.key(), event.payload());
+        order.verify(publicationStore).markPublished(event);
     }
 
     @Test
-    void shouldKeepEventPendingWhenKafkaFails()
-            throws Exception {
-
-        OutboxEvent event = createEvent();
-
-        when(outboxRepository.lockNextUnpublished())
-                .thenReturn(Optional.of(event));
-
-        when(objectMapper.writeValueAsString(event.getPayload()))
-                .thenReturn("{\"message\":\"test\"}");
-
-        when(kafkaTemplate.send(
-                event.getTopic(),
-                event.getEventKey(),
-                "{\"message\":\"test\"}"
-        )).thenReturn(
-                CompletableFuture.failedFuture(
-                        new IllegalStateException("Kafka недоступна")
-                )
-        );
+    void shouldKeepEventPendingWhenKafkaFails() {
+        when(publicationStore.claimNext()).thenReturn(Optional.of(event));
+        when(kafkaTemplate.send(event.topic(), event.key(), event.payload()))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("Kafka недоступна")));
 
         publisher.publishNext();
 
-        assertEquals(1, event.getAttempts());
-        assertNull(event.getPublishedAt());
+        verify(publicationStore, never()).markPublished(event);
     }
 
     @Test
     void shouldSkipWhenNoPendingEvents() {
-        when(outboxRepository.lockNextUnpublished())
-                .thenReturn(Optional.empty());
+        when(publicationStore.claimNext()).thenReturn(Optional.empty());
 
         publisher.publishNext();
 
-        verifyNoInteractions(kafkaTemplate, objectMapper);
-    }
-
-    private OutboxEvent createEvent() {
-        OutboxEvent event = new OutboxEvent();
-
-        event.setId(UUID.randomUUID());
-        event.setTopic("bank.events.dev");
-        event.setEventKey("test-1");
-        event.setEventType("OUTBOX_TEST");
-        event.setPayload(Map.of("message", "test"));
-
-        return event;
+        verifyNoInteractions(kafkaTemplate);
     }
 }
