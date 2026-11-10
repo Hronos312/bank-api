@@ -32,11 +32,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
 
     environment:
       DB_URL: jdbc:postgresql://db:5432/bank_api
       DB_USERNAME: bank_user
       DB_PASSWORD: bank_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      OUTBOX_PUBLISHER_ENABLED: ${OUTBOX_PUBLISHER_ENABLED:-true}
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
@@ -85,9 +89,56 @@ services:
     volumes:
       - bank_api_kafka_data:/var/lib/kafka/data
 
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:19092", "--list"]
+      interval: 10s
+      timeout: 8s
+      retries: 10
+      start_period: 15s
+
     restart: unless-stopped
 
+  notification-db:
+    image: postgres:17-alpine
+    container_name: bank-notification-db
+
+    environment:
+      POSTGRES_DB: notifications_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_password
+
+    ports:
+      - "127.0.0.1:5433:5432"
+
+    volumes:
+      - bank_api_notification_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notifications_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped
+
+  notification-service:
+    build: ./services/notification-service
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+    environment:
+      DB_URL: jdbc:postgresql://notification-db:5432/notifications_db
+      DB_USERNAME: notification_user
+      DB_PASSWORD: notification_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+
+    restart: unless-stopped
 
 volumes:
   bank_api_postgres_data:
   bank_api_kafka_data:
+  bank_api_notification_data:

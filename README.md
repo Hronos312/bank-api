@@ -183,21 +183,9 @@ The `.env` file contains secrets and must not be committed to Git.
 docker compose up -d --build
 ```
 
-Docker Compose starts:
+Docker Compose starts the Bank API on port 8080, Kafka, Notification Service, and a separate PostgreSQL 17 database for each application. Kafka and Notification Service's database are also available on the host at `127.0.0.1:9092` and `127.0.0.1:5433`.
 
-```text
-bank-api-app
-    |
-    +---- Spring Boot application
-    |
-    +---- port 8080
-
-bank-api-db
-    |
-    +---- PostgreSQL 17
-    |
-    +---- persistent Docker volume
-```
+The Outbox Publisher is enabled in Compose. See the [microservices roadmap](docs/roadmap.md) for delivery and retry behavior.
 
 Check container status:
 
