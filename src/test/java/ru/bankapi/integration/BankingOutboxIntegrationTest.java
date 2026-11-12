@@ -287,7 +287,7 @@ class BankingOutboxIntegrationTest {
             String balance
     ) {
         BankAccount account = new BankAccount();
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setAccountNumber(number);
         account.setBalance(new BigDecimal(balance));
 

@@ -9,7 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.BankTransactionRepository;
-import ru.bankapi.dal.UserRepository;
+import ru.bankapi.identity.IdentityDirectory;
 import ru.bankapi.dto.transaction.TransactionResponse;
 import ru.bankapi.dto.transfer.TransferRequest;
 import ru.bankapi.enums.AccountStatus;
@@ -41,7 +41,7 @@ class TransferServiceTest {
     private BankTransactionRepository transactionRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityDirectory identityDirectory;
 
     @Mock
     private BankTransactionMapper transactionMapper;
@@ -89,8 +89,8 @@ class TransferServiceTest {
 
         request.setDescription("Перевод");
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -216,8 +216,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -302,8 +302,8 @@ class TransferServiceTest {
                 "500.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -357,8 +357,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 "40817810000000000099"
@@ -395,8 +395,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 "40817810000000000020"
@@ -462,8 +462,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(currentUser));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(currentUser.getId(), currentUser.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -525,8 +525,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -588,8 +588,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 destination.getAccountNumber()
@@ -629,8 +629,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
                 "40817810000000000001"
@@ -667,8 +667,8 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         assertThrows(
                 InvalidOperationException.class,
@@ -708,7 +708,7 @@ class TransferServiceTest {
         BankAccount account = new BankAccount();
 
         account.setId(id);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setBalance(new BigDecimal(balance));
         account.setAccountNumber(accountNumber);
         account.setStatus(AccountStatus.ACTIVE);

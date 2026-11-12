@@ -4,11 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.bankapi.dal.BankTransactionRepository;
-import ru.bankapi.dal.UserRepository;
 import ru.bankapi.dto.report.SpendingReportResponse;
 import ru.bankapi.enums.TransactionType;
 import ru.bankapi.exception.NotFoundException;
-import ru.bankapi.model.User;
+import ru.bankapi.identity.IdentityDirectory;
+import ru.bankapi.identity.IdentityDirectory.UserIdentity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,17 +18,17 @@ import java.time.LocalDateTime;
 public class ReportService {
 
     private final BankTransactionRepository transactionRepository;
-    private final UserRepository userRepository;
+    private final IdentityDirectory identityDirectory;
 
     @Transactional(readOnly = true)
     public SpendingReportResponse getSpendingReport(String email) {
-        User user = userRepository.findByEmail(email)
+        UserIdentity user = identityDirectory.findByUsername(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        BigDecimal withdrawals = transactionRepository.sumBySourceUserIdAndType(user.getId(), TransactionType.WITHDRAWAL);
+        BigDecimal withdrawals = transactionRepository.sumBySourceUserIdAndType(user.id(), TransactionType.WITHDRAWAL);
 
         BigDecimal outgoingTransfers = transactionRepository.sumOutgoingTransfersToOtherUsers(
-                user.getId(),
+                user.id(),
                 TransactionType.TRANSFER
         );
 

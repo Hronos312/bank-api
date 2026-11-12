@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.BankTransactionRepository;
-import ru.bankapi.dal.UserRepository;
+import ru.bankapi.identity.IdentityDirectory;
 import ru.bankapi.dto.transaction.MoneyOperationRequest;
 import ru.bankapi.dto.transaction.TransactionResponse;
 import ru.bankapi.enums.AccountStatus;
@@ -41,7 +41,7 @@ class TransactionServiceTest {
     private BankAccountRepository bankAccountRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityDirectory identityDirectory;
 
     @Mock
     private BankTransactionMapper transactionMapper;
@@ -63,8 +63,8 @@ class TransactionServiceTest {
         request.setAmount(new BigDecimal("500.00"));
         request.setDescription("Пополнение");
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -149,8 +149,8 @@ class TransactionServiceTest {
         request.setAmount(new BigDecimal("250.00"));
         request.setDescription("Снятие");
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -222,8 +222,8 @@ class TransactionServiceTest {
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("500.00"));
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -259,8 +259,8 @@ class TransactionServiceTest {
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         assertThrows(
                 InvalidOperationException.class,
@@ -289,8 +289,8 @@ class TransactionServiceTest {
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -317,8 +317,8 @@ class TransactionServiceTest {
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(99L, 1L))
                 .thenReturn(Optional.empty());
@@ -351,8 +351,8 @@ class TransactionServiceTest {
         secondTransaction.setId(19L);
         secondTransaction.setType(TransactionType.DEPOSIT);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -430,8 +430,8 @@ class TransactionServiceTest {
         User user = createActiveUser(email);
         BankAccount account = createActiveAccount(user, "0.00");
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -465,8 +465,8 @@ class TransactionServiceTest {
 
         User user = createActiveUser(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 99L,
@@ -506,7 +506,7 @@ class TransactionServiceTest {
         BankAccount account = new BankAccount();
 
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setBalance(new BigDecimal(balance));
         account.setStatus(AccountStatus.ACTIVE);
 

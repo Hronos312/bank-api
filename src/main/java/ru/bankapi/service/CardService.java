@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.CardRepository;
-import ru.bankapi.dal.UserRepository;
 import ru.bankapi.dto.card.CardResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CardStatus;
@@ -14,7 +13,8 @@ import ru.bankapi.generator.CardNumberGenerator;
 import ru.bankapi.mapper.CardMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.Card;
-import ru.bankapi.model.User;
+import ru.bankapi.identity.IdentityDirectory;
+import ru.bankapi.identity.IdentityDirectory.UserIdentity;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,15 +25,15 @@ public class CardService {
 
     private final CardRepository cardRepository;
     private final BankAccountRepository bankAccountRepository;
-    private final UserRepository userRepository;
+    private final IdentityDirectory identityDirectory;
     private final CardNumberGenerator cardNumberGenerator;
     private final CardMapper cardMapper;
 
     public CardResponse issueCard(Long accountId, String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         BankAccount account = bankAccountRepository
-                .findByIdAndUserId(accountId, user.getId())
+                .findByIdAndUserId(accountId, user.id())
                 .orElseThrow(() ->
                         new NotFoundException("Счёт не найден")
                 );
@@ -59,27 +59,27 @@ public class CardService {
     }
 
     public List<CardResponse> getCards(String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         return cardRepository
-                .findAllByBankAccountUserId(user.getId())
+                .findAllByBankAccountUserId(user.id())
                 .stream()
                 .map(cardMapper::toResponse)
                 .toList();
     }
 
     public CardResponse getCard(Long cardId, String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         Card card = cardRepository
-                .findByIdAndBankAccountUserId(cardId, user.getId())
+                .findByIdAndBankAccountUserId(cardId, user.id())
                 .orElseThrow(() -> new NotFoundException("Карта не найдена"));
 
         return cardMapper.toResponse(card);
     }
 
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+    private UserIdentity getUserByEmail(String email) {
+        return identityDirectory.findByUsername(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 

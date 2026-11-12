@@ -7,7 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.bankapi.dal.BankAccountRepository;
-import ru.bankapi.dal.UserRepository;
+import ru.bankapi.identity.IdentityDirectory;
 import ru.bankapi.dto.account.AccountResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CurrencyCode;
@@ -32,7 +32,7 @@ class BankAccountServiceTest {
     private BankAccountRepository bankAccountRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityDirectory identityDirectory;
 
     @Mock
     private AccountNumberGenerator accountNumberGenerator;
@@ -51,8 +51,8 @@ class BankAccountServiceTest {
         user.setId(1L);
         user.setEmail(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(accountNumberGenerator.generate())
                 .thenReturn("40817810000000000001");
@@ -104,7 +104,7 @@ class BankAccountServiceTest {
 
         BankAccount savedAccount = captor.getValue();
 
-        assertEquals(user, savedAccount.getUser());
+        assertEquals(user.getId(), savedAccount.getUserId());
         assertEquals(
                 "40817810000000000001",
                 savedAccount.getAccountNumber()
@@ -131,8 +131,8 @@ class BankAccountServiceTest {
         user.setId(1L);
         user.setEmail(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(accountNumberGenerator.generate())
                 .thenReturn(
@@ -186,8 +186,8 @@ class BankAccountServiceTest {
         BankAccount secondAccount = new BankAccount();
         secondAccount.setId(11L);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findAllByUserId(1L))
                 .thenReturn(
@@ -229,10 +229,10 @@ class BankAccountServiceTest {
 
         BankAccount account = new BankAccount();
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 10L,
@@ -263,8 +263,8 @@ class BankAccountServiceTest {
         user.setId(1L);
         user.setEmail(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 99L,

@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.CardRepository;
-import ru.bankapi.dal.UserRepository;
+import ru.bankapi.identity.IdentityDirectory;
 import ru.bankapi.dto.card.CardResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CardStatus;
@@ -38,7 +38,7 @@ class CardServiceTest {
     private BankAccountRepository bankAccountRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityDirectory identityDirectory;
 
     @Mock
     private CardNumberGenerator cardNumberGenerator;
@@ -59,11 +59,11 @@ class CardServiceTest {
 
         BankAccount account = new BankAccount();
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setStatus(AccountStatus.ACTIVE);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -144,11 +144,11 @@ class CardServiceTest {
 
         BankAccount account = new BankAccount();
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setStatus(AccountStatus.ACTIVE);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
                 .thenReturn(Optional.of(account));
@@ -202,8 +202,8 @@ class CardServiceTest {
         user.setId(1L);
         user.setEmail(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 99L,
@@ -235,11 +235,11 @@ class CardServiceTest {
 
         BankAccount account = new BankAccount();
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setStatus(AccountStatus.BLOCKED);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 10L,
@@ -271,11 +271,11 @@ class CardServiceTest {
 
         BankAccount account = new BankAccount();
         account.setId(10L);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setStatus(AccountStatus.ACTIVE);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
                 10L,
@@ -314,8 +314,8 @@ class CardServiceTest {
         Card secondCard = new Card();
         secondCard.setId(21L);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findAllByBankAccountUserId(1L))
                 .thenReturn(
@@ -358,8 +358,8 @@ class CardServiceTest {
         Card card = new Card();
         card.setId(20L);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findByIdAndBankAccountUserId(
                 20L,
@@ -393,8 +393,8 @@ class CardServiceTest {
         user.setId(1L);
         user.setEmail(email);
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findByIdAndBankAccountUserId(
                 99L,

@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.BankTransactionRepository;
-import ru.bankapi.dal.UserRepository;
 import ru.bankapi.dto.transaction.TransactionResponse;
 import ru.bankapi.dto.transfer.TransferRequest;
 import ru.bankapi.enums.AccountStatus;
@@ -16,7 +15,8 @@ import ru.bankapi.exception.NotFoundException;
 import ru.bankapi.mapper.BankTransactionMapper;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.model.BankTransaction;
-import ru.bankapi.model.User;
+import ru.bankapi.identity.IdentityDirectory;
+import ru.bankapi.identity.IdentityDirectory.UserIdentity;
 import ru.bankapi.service.outbox.OutboxService;
 
 @Service
@@ -25,13 +25,13 @@ public class TransferService {
 
     private final BankAccountRepository bankAccountRepository;
     private final BankTransactionRepository transactionRepository;
-    private final UserRepository userRepository;
+    private final IdentityDirectory identityDirectory;
     private final BankTransactionMapper transactionMapper;
     private final OutboxService outboxService;
 
     @Transactional
     public TransactionResponse transfer(Long sourceAccountId, String email, TransferRequest request) {
-        User user = getActiveUser(email);
+        UserIdentity user = getActiveUser(email);
 
         Long destinationAccountId = bankAccountRepository.findIdByAccountNumber(request.getDestinationAccountNumber())
                 .orElseThrow(() -> new NotFoundException("Счёт получателя не найден"));
@@ -54,7 +54,7 @@ public class TransferService {
 
         BankAccount destinationAccount = destinationAccountId.equals(firstAccountId) ? firstAccount : secondAccount;
 
-        if (!sourceAccount.getUser().getId().equals(user.getId())) {
+        if (!sourceAccount.getUserId().equals(user.id())) {
             throw new NotFoundException("Счёт отправителя не найден");
         }
 
@@ -89,11 +89,11 @@ public class TransferService {
         return transactionMapper.toResponse(savedTransaction);
     }
 
-    private User getActiveUser(String email) {
-        User user = userRepository.findByEmail(email)
+    private UserIdentity getActiveUser(String email) {
+        UserIdentity user = identityDirectory.findByUsername(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        if (user.status() != UserStatus.ACTIVE) {
             throw new InvalidOperationException("Операции недоступны для заблокированного пользователя");
         }
 

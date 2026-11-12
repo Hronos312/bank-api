@@ -222,7 +222,7 @@ class SpendingReportIntegrationTest {
         BankAccount account = new BankAccount();
 
         account.setAccountNumber(accountNumber);
-        account.setUser(user);
+        account.setUserId(user.getId());
         account.setBalance(
                 new BigDecimal(balance)
         );

@@ -25,7 +25,7 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long> 
             SELECT a
             FROM BankAccount a
             WHERE a.id = :accountId
-              AND a.user.id = :userId
+              AND a.userId = :userId
             """)
     Optional<BankAccount> findByIdAndUserIdForUpdate(@Param("accountId") Long accountId, @Param("userId") Long userId);
 

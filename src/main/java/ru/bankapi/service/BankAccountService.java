@@ -3,7 +3,6 @@ package ru.bankapi.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.bankapi.dal.BankAccountRepository;
-import ru.bankapi.dal.UserRepository;
 import ru.bankapi.dto.account.AccountResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CurrencyCode;
@@ -11,7 +10,8 @@ import ru.bankapi.exception.NotFoundException;
 import ru.bankapi.generator.AccountNumberGenerator;
 import ru.bankapi.mapper.BankAccountMapper;
 import ru.bankapi.model.BankAccount;
-import ru.bankapi.model.User;
+import ru.bankapi.identity.IdentityDirectory;
+import ru.bankapi.identity.IdentityDirectory.UserIdentity;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,17 +21,17 @@ import java.util.List;
 public class BankAccountService {
 
     private final BankAccountRepository bankAccountRepository;
-    private final UserRepository userRepository;
+    private final IdentityDirectory identityDirectory;
     private final AccountNumberGenerator accountNumberGenerator;
     private final BankAccountMapper bankAccountMapper;
 
     public AccountResponse createAccount(String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         BankAccount account = new BankAccount();
 
         account.setAccountNumber(generateUniqueAccountNumber());
-        account.setUser(user);
+        account.setUserId(user.id());
         account.setBalance(BigDecimal.ZERO);
         account.setCurrency(CurrencyCode.RUB);
         account.setStatus(AccountStatus.ACTIVE);
@@ -42,27 +42,27 @@ public class BankAccountService {
     }
 
     public List<AccountResponse> getAccounts(String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         return bankAccountRepository
-                .findAllByUserId(user.getId())
+                .findAllByUserId(user.id())
                 .stream()
                 .map(bankAccountMapper::toResponse)
                 .toList();
     }
 
     public AccountResponse getAccount(Long accountId, String email) {
-        User user = getUserByEmail(email);
+        UserIdentity user = getUserByEmail(email);
 
         BankAccount account = bankAccountRepository
-                .findByIdAndUserId(accountId, user.getId())
+                .findByIdAndUserId(accountId, user.id())
                 .orElseThrow(() -> new NotFoundException("Счёт не найден"));
 
         return bankAccountMapper.toResponse(account);
     }
 
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+    private UserIdentity getUserByEmail(String email) {
+        return identityDirectory.findByUsername(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 

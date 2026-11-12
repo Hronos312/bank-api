@@ -20,7 +20,7 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
         SELECT COALESCE(SUM(t.amount), 0)
         FROM BankTransaction t
         WHERE t.type = :type
-          AND t.sourceAccount.user.id = :userId
+          AND t.sourceAccount.userId = :userId
         """)
     BigDecimal sumBySourceUserIdAndType(@Param("userId") Long userId, @Param("type") TransactionType type);
 
@@ -28,8 +28,8 @@ public interface BankTransactionRepository extends JpaRepository<BankTransaction
         SELECT COALESCE(SUM(t.amount), 0)
         FROM BankTransaction t
         WHERE t.type = :type
-          AND t.sourceAccount.user.id = :userId
-          AND t.destinationAccount.user.id <> :userId
+          AND t.sourceAccount.userId = :userId
+          AND t.destinationAccount.userId <> :userId
         """)
     BigDecimal sumOutgoingTransfersToOtherUsers(@Param("userId") Long userId, @Param("type") TransactionType type);
 }

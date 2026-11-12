@@ -6,7 +6,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.bankapi.dal.BankTransactionRepository;
-import ru.bankapi.dal.UserRepository;
+import ru.bankapi.identity.IdentityDirectory;
 import ru.bankapi.dto.report.SpendingReportResponse;
 import ru.bankapi.enums.TransactionType;
 import ru.bankapi.enums.UserStatus;
@@ -27,7 +27,7 @@ class ReportServiceTest {
     private BankTransactionRepository transactionRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityDirectory identityDirectory;
 
     @InjectMocks
     private ReportService reportService;
@@ -41,8 +41,8 @@ class ReportServiceTest {
                 email
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(transactionRepository.sumBySourceUserIdAndType(
                 1L,
@@ -101,8 +101,8 @@ class ReportServiceTest {
                 email
         );
 
-        when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
+        when(identityDirectory.findByUsername(email))
+                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(transactionRepository.sumBySourceUserIdAndType(
                 1L,
@@ -143,7 +143,7 @@ class ReportServiceTest {
     void getSpendingReportShouldThrowWhenUserDoesNotExist() {
         String email = "missing@example.com";
 
-        when(userRepository.findByEmail(email))
+        when(identityDirectory.findByUsername(email))
                 .thenReturn(Optional.empty());
 
         assertThrows(
