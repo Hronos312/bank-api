@@ -14,13 +14,14 @@ import ru.bankapi.exception.ApiErrorWriter;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @Order(-110)
 class AuthRateLimitFilter extends OncePerRequestFilter {
 
-    private final Cache<String, Integer> attempts = Caffeine.newBuilder()
-            .maximumSize(10_000).expireAfterWrite(Duration.ofMinutes(2)).build();
+    private final Cache<String, AtomicInteger> attempts = Caffeine.newBuilder()
+            .maximumSize(10_000).expireAfterWrite(Duration.ofMinutes(1)).build();
     private final ApiErrorWriter errors;
     private final int perMinute;
 
@@ -42,9 +43,7 @@ class AuthRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        long minute = System.currentTimeMillis() / 60_000;
-        String key = request.getRemoteAddr() + "/" + minute;
-        int count = attempts.asMap().merge(key, 1, Integer::sum);
+        int count = attempts.get(request.getRemoteAddr(), address -> new AtomicInteger()).incrementAndGet();
         if (count > perMinute) {
             response.setHeader("Retry-After", "60");
             errors.write(request, response, 429, "RATE_LIMIT", "Слишком много запросов. Повторите позже");

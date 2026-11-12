@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: microservices-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-24.04
@@ -40,6 +44,13 @@ jobs:
       - name: Rehearse the legacy migration
         shell: pwsh
         run: ./tools/rehearse-migration.ps1
+      - name: Diagnose test stack
+        if: failure()
+        run: |
+          if [ -f secrets/compose.env ]; then
+            docker compose --env-file secrets/compose.env -p bank-api-smoke ps -a
+            docker compose --env-file secrets/compose.env -p bank-api-smoke logs --tail=60
+          fi
       - name: Tear down isolated test stack
         if: always()
         run: |

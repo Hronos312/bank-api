@@ -1,7 +1,7 @@
 package ru.bankapi.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -63,7 +63,7 @@ class GatewayOpenApiController {
         if (source.get("paths") instanceof ObjectNode sourcePaths) {
             paths.setAll(sourcePaths);
         }
-        source.path("components").fields().forEachRemaining(entry -> {
+        source.path("components").properties().forEach(entry -> {
             if (entry.getValue() instanceof ObjectNode values) {
                 components.withObjectProperty(entry.getKey()).setAll(values);
             }

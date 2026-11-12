@@ -1,86 +1,71 @@
-
 package ru.bankapi.kafka;
 
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.SendResult;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.kafka.KafkaContainer;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Testcontainers
+@DirtiesContext
 @SpringBootTest(
         classes = KafkaProducerServiceIntegrationTest.TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = "management.endpoint.health.group.readiness.include=ping"
 )
-@EmbeddedKafka(
-        partitions = 1,
-        topics = "bank.events.dev",
-        bootstrapServersProperty = "spring.kafka.bootstrap-servers"
-)
-@DirtiesContext
 class KafkaProducerServiceIntegrationTest {
 
     private static final String TOPIC = "bank.events.dev";
 
-    @Autowired
-    private KafkaProducerService producerService;
+    @Container
+    static final KafkaContainer kafka = new KafkaContainer("apache/kafka:4.2.2");
+
+    @DynamicPropertySource
+    static void kafkaProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
 
     @Autowired
-    private EmbeddedKafkaBroker embeddedKafka;
+    private KafkaProducerService producer;
 
     @Test
     void shouldSendMessageToKafka() throws Exception {
-        String message = "Hello from Spring Boot!";
+        String message = "Проверка отправки сообщения";
+        var metadata = producer.sendTestMessage(message).get(15, TimeUnit.SECONDS).getRecordMetadata();
+        assertEquals(TOPIC, metadata.topic());
 
-        var consumerProperties = KafkaTestUtils.consumerProps(
-                "bank-api-test",
-                "false",
-                embeddedKafka
-        );
-
-        var consumerFactory = new DefaultKafkaConsumerFactory<>(
-                consumerProperties,
-                new StringDeserializer(),
-                new StringDeserializer()
-        );
-
-        try (Consumer<String, String> consumer =
-                     consumerFactory.createConsumer()) {
-
-            embeddedKafka.consumeFromAnEmbeddedTopic(consumer, TOPIC);
-
-            SendResult<String, String> result = producerService
-                    .sendTestMessage(message)
-                    .get(10, TimeUnit.SECONDS);
-
-            assertEquals(TOPIC, result.getRecordMetadata().topic());
-
-            ConsumerRecord<String, String> record =
-                    KafkaTestUtils.getSingleRecord(
-                            consumer,
-                            TOPIC,
-                            Duration.ofSeconds(10)
-                    );
-
-            assertEquals(message, record.value());
+        try (var reader = new KafkaConsumer<String, String>(Map.of(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class))) {
+            var partition = new TopicPartition(TOPIC, metadata.partition());
+            reader.assign(List.of(partition));
+            reader.seek(partition, metadata.offset());
+            var records = reader.poll(Duration.ofSeconds(15)).records(partition);
+            assertTrue(!records.isEmpty(), "Kafka не вернула опубликованное сообщение");
+            assertEquals(message, records.getFirst().value());
         }
     }
 

@@ -2,8 +2,8 @@ package ru.bankapi.notification.config;
 
 import jakarta.annotation.PreDestroy;
 import org.apache.kafka.clients.admin.Admin;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.stereotype.Component;
 

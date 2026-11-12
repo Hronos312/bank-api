@@ -1,7 +1,7 @@
 package ru.bankapi.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -74,7 +74,7 @@ public class MoneyIdempotencyService {
     private String writeJson(Object value) {
         try {
             return json.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Не удалось сохранить данные идемпотентной операции", exception);
         }
     }
@@ -82,7 +82,7 @@ public class MoneyIdempotencyService {
     private TransactionResponse readResponse(String value) {
         try {
             return json.readValue(value, TransactionResponse.class);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Не удалось прочитать сохранённый результат операции", exception);
         }
     }

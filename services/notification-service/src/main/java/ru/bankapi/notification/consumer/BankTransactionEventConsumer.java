@@ -1,8 +1,8 @@
 package ru.bankapi.notification.consumer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -50,7 +50,7 @@ public class BankTransactionEventConsumer {
             return objectMapper.readerFor(BankTransactionCompletedEvent.class)
                     .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .readValue(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new InvalidBankEventException("Не удалось прочитать JSON банковского события");
         }
     }

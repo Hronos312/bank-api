@@ -126,8 +126,14 @@ foreach ($transaction in @($deposit, $withdraw, $transfer)) {
     Wait-For { $script:published = Outbox $transaction.id; [bool]$script:published } 'Outbox не завершил публикацию'
     $eventId, $eventKey, $payload = $published -split '\|', 3
     Wait-For { (Notification-Count ([guid]$eventId)) -eq '1|1' } 'Уведомление не сохранено'
-    if ($transaction.id -eq $deposit.id -and ($payload | ConvertFrom-Json).correlationId -ne $correlation) {
-        throw 'Идентификатор корреляции не дошёл от Gateway до Outbox'
+    if ($transaction.id -eq $deposit.id) {
+        $event = $payload | ConvertFrom-Json
+        if ($event.correlationId -ne $correlation) {
+            throw 'Идентификатор корреляции не дошёл от Gateway до Outbox'
+        }
+        if ($event.sourceTraceId -notmatch '^[0-9a-f]{16}([0-9a-f]{16})?$') {
+            throw 'Outbox не сохранил идентификатор HTTP-трассировки'
+        }
     }
 }
 
@@ -163,7 +169,8 @@ if ($Recovery) {
     Wait-For { $script:offlineEvent = Outbox $offline.id; [bool]$script:offlineEvent } 'Outbox не восстановился после запуска Kafka'
     $eventId, $eventKey, $payload = $offlineEvent -split '\|', 3
     Wait-For { (Notification-Count ([guid]$eventId)) -eq '1|1' } 'Уведомление после сбоя Kafka не доставлено'
-    $null = Docker-Compose @('restart', 'notification-service')
+    $null = Docker-Compose @('stop', 'notification-service')
+    $null = Docker-Compose @('up', '-d', '--no-deps', '--wait', 'notification-service')
     $poison = "{invalid-$suffix"
     @("$eventKey|$payload", "poison-$suffix|$poison") |
         & docker @composeArgs exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:19092 `
