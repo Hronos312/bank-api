@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: identity-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/identity_db}
+    username: ${DB_USERNAME:identity_user}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+app:
+  identity:
+    internal-enabled: true
+    internal-token: ${IDENTITY_INTERNAL_TOKEN}
+
+admin:
+  bootstrap:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    first-name: ${ADMIN_FIRST_NAME:System}
+    last-name: ${ADMIN_LAST_NAME:Administrator}
+    birth-date: ${ADMIN_BIRTH_DATE:1970-01-01}
+    phone: ${ADMIN_PHONE:}
+
+server:
+  port: 8081
+
+springdoc:
+  api-docs:
+    path: /openapi/identity
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+logging:
+  structured:
+    format:
+      console: logstash

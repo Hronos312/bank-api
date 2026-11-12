@@ -84,7 +84,9 @@ Administrators cannot directly modify account balances or transaction records.
 
 ## Architecture
 
-The application follows a layered architecture:
+Gateway routes HTTP requests to Identity and Banking. Identity owns users and signs JWTs. Banking owns accounts, cards, transactions and Outbox. Notification consumes banking events independently. Each stateful service uses its own PostgreSQL database.
+
+The HTTP services retain the layered architecture:
 
 ```text
 HTTP Request
@@ -104,14 +106,12 @@ PostgreSQL
 
 Security requests pass through the Spring Security filter chain and JWT authentication filter before reaching protected endpoints.
 
-Main domain entities:
+Banking stores the user ID assigned by Identity. Accounts link to cards and transactions inside the Banking database.
 
 ```text
-User
+BankAccount (userId)
  |
- +---- BankAccount
-          |
-          +---- Card
+ +---- Card
 
 BankTransaction
  |
@@ -148,66 +148,51 @@ Passwords are stored using BCrypt hashes and are never stored in plain text.
 
 ### Requirements
 
-Only Docker and Docker Compose are required to run the complete application.
+Use Docker Compose and Java 21. Java generates the local development credentials and runs the Maven reactor.
 
 ### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Hronos312/bank-api.git
 cd bank-api
+git switch develop/microservices
 ```
 
 ### 2. Create environment configuration
 
-Create `.env` based on `.env.example`.
+Generate the RSA keys, database passwords and internal Identity API credential.
 
-Example:
-
-```dotenv
-JWT_SECRET=your-base64-jwt-secret
-JWT_EXPIRATION=3600000
-
-ADMIN_EMAIL=admin@bank.local
-ADMIN_PASSWORD=change-me
-ADMIN_PHONE=+70000000001
-ADMIN_FIRST_NAME=System
-ADMIN_LAST_NAME=Administrator
-ADMIN_BIRTH_DATE=2000-01-01
+```bash
+java tools/GenerateDevSecrets.java
 ```
 
-The `.env` file contains secrets and must not be committed to Git.
+Optional administrator bootstrap settings are in `.env.example`. Pass `--env-file .env` before `--env-file secrets/compose.env` when using these settings.
 
 ### 3. Build and start the application
 
 ```bash
-docker compose up -d --build
+docker compose --env-file secrets/compose.env up -d --build --wait
 ```
 
-Docker Compose starts the Bank API on port 8080, Kafka, Notification Service, and a separate PostgreSQL 17 database for each application. Kafka and Notification Service's database are also available on the host at `127.0.0.1:9092` and `127.0.0.1:5433`.
+Gateway exposes the public HTTP API at `127.0.0.1:8080`. Identity, Banking and Notification each own a PostgreSQL 17 database. Kafka has a local development listener at `127.0.0.1:9092`.
 
-The Outbox Publisher is enabled in Compose. See the [microservices roadmap](docs/roadmap.md) for delivery and retry behavior.
+See the [roadmap](docs/roadmap.md), [service contracts](docs/contracts.md), [migration guide](docs/migration.md) and [operations guide](docs/operations.md).
 
 Check container status:
 
 ```bash
-docker compose ps
+docker compose --env-file secrets/compose.env ps
 ```
 
 ### 4. Stop the application
 
 ```bash
-docker compose down
+docker compose --env-file secrets/compose.env down
 ```
 
 Database data is preserved in the Docker volume.
 
-To completely remove the local database:
-
-```bash
-docker compose down -v
-```
-
-> Warning: this command permanently deletes the local PostgreSQL volume.
+For a clean test stack, use a separate Compose project with `-p bank-api-smoke`.
 
 ## Swagger / OpenAPI
 

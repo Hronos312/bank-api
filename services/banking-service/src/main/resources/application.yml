@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: banking-service
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/banking_db}
+    username: ${DB_USERNAME:banking_user}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+    properties:
+      hibernate:
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    template:
+      observation-enabled: true
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+
+      properties:
+        "[enable.idempotence]": true
+        "[max.block.ms]": 3000
+        "[request.timeout.ms]": 5000
+        "[delivery.timeout.ms]": 15000
+
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  identity:
+    internal-enabled: true
+    internal-token: ${IDENTITY_INTERNAL_TOKEN}
+    url: ${IDENTITY_URL:http://localhost:8081}
+
+  outbox:
+    publisher:
+      enabled: ${OUTBOX_PUBLISHER_ENABLED:false}
+      poll-delay-ms: 5000
+
+
+server:
+  port: 8082
+
+springdoc:
+  api-docs:
+    path: /openapi/banking
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+logging:
+  structured:
+    format:
+      console: logstash

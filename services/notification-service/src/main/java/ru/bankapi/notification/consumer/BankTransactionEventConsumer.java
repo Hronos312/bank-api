@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -23,15 +24,21 @@ public class BankTransactionEventConsumer {
     @KafkaListener(topics = "${app.kafka.topic}")
     public void consume(ConsumerRecord<String, String> record) {
         BankTransactionCompletedEvent event = readEvent(record.value());
-        processingService.process(event);
-
-        log.debug(
-                "Обработка сообщения Kafka завершена: topic={}, partition={}, offset={}, eventId={}",
-                record.topic(),
-                record.partition(),
-                record.offset(),
-                event.eventId()
-        );
+        if (event == null) {
+            throw new InvalidBankEventException("Сообщение Kafka не содержит банковского события");
+        }
+        String trace = event.sourceTraceId();
+        if (trace != null && !trace.matches("[0-9a-f]{16}|[0-9a-f]{32}")) {
+            trace = null;
+        }
+        try (var eventContext = MDC.putCloseable("eventId", String.valueOf(event.eventId()));
+             var correlation = MDC.putCloseable("correlationId", event.correlationId() == null
+                     ? null : event.correlationId().toString());
+             var sourceTrace = MDC.putCloseable("sourceTraceId", trace)) {
+            processingService.process(event);
+            log.debug("Обработка сообщения Kafka завершена. Тема={}, раздел={}, смещение={}",
+                    record.topic(), record.partition(), record.offset());
+        }
     }
 
     private BankTransactionCompletedEvent readEvent(String value) {

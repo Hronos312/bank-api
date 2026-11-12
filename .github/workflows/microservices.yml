@@ -1,0 +1,58 @@
+name: Microservices
+
+on:
+  push:
+    branches: [develop/microservices]
+  pull_request:
+    branches: [develop/microservices]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+      - name: Maven and Testcontainers
+        run: mvn -B --no-transfer-progress clean verify
+      - name: Whitespace check
+        run: git show --format= --check HEAD
+      - name: Configure test credentials
+        run: java tools/GenerateDevSecrets.java
+      - name: Build and start full stack
+        run: |
+          docker compose --env-file secrets/compose.env -p bank-api-smoke config --quiet
+          docker compose --env-file secrets/compose.env -p bank-api-smoke up -d --build --wait
+      - name: Verify external contracts and recovery
+        shell: pwsh
+        run: ./tools/smoke.ps1 -Recovery
+      - name: Rehearse the legacy migration
+        shell: pwsh
+        run: ./tools/rehearse-migration.ps1
+      - name: Tear down isolated test stack
+        if: always()
+        run: |
+          if [ -f secrets/compose.env ]; then
+            docker compose --env-file secrets/compose.env -p bank-api-smoke down --volumes
+          fi
+
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan Maven dependencies
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src ghcr.io/google/osv-scanner:v2.7.1 \
+            scan source --recursive --data-source=native --maven-registry=https://repo.maven.apache.org/maven2/ .
