@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @SpringBootTest(
         classes = KafkaProducerServiceIntegrationTest.TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = "management.endpoint.health.probes.enabled=false"
+        properties = "management.endpoint.health.group.readiness.include=ping"
 )
 @EmbeddedKafka(
         partitions = 1,
