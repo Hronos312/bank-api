@@ -35,8 +35,6 @@ Each stateful service owns its PostgreSQL database and Flyway migrations. Gatewa
 
 Install a JDK 21 and Docker with Docker Compose. Maven is needed for host-side builds and tests. Docker builds the application images using Maven.
 
-To try the integration branch before it merges, add `--branch develop/microservices` to the clone command.
-
 ```bash
 git clone https://github.com/Hronos312/bank-api.git
 cd bank-api
@@ -113,4 +111,4 @@ The Maven reactor runs unit, MVC and Testcontainers integration tests with Postg
 - [Operations and troubleshooting](docs/operations.md)
 - [V1 baseline](docs/v1-baseline.md) and [microservices roadmap](docs/roadmap.md)
 
-The original monolith is available at [`v1.0.0`](https://github.com/Hronos312/bank-api/tree/v1.0.0). The verified microservices release candidate is [`v2.0.0-rc.1`](https://github.com/Hronos312/bank-api/tree/v2.0.0-rc.1).
+The original monolith is available at [`v1.0.0`](https://github.com/Hronos312/bank-api/tree/v1.0.0). The verified microservices version is avaliable at [`v2.0.0-rc.1`](https://github.com/Hronos312/bank-api/tree/v2.0.0-rc.1).
