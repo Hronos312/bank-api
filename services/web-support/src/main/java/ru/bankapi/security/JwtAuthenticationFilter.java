@@ -57,7 +57,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             errors.write(request, response, 503, "SERVICE_UNAVAILABLE", exception.getMessage());
             return;
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException exception) {
-            // Защищённый маршрут вернёт 401 через обработчик Spring Security.
         }
         chain.doFilter(request, response);
     }

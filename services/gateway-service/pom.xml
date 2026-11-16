@@ -14,6 +14,7 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Управление версиями Spring Cloud -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -25,32 +26,39 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Тестирование Spring MVC -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- HTTP-клиент для вызовов сервисов -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
+        <!-- Общие настройки API и безопасности -->
         <dependency>
             <groupId>ru.bankapi</groupId>
             <artifactId>web-support</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Маршрутизация запросов к сервисам -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
         </dependency>
+        <!-- Локальное хранение счётчиков ограничения запросов -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
         </dependency>
+        <!-- Проверки состояния и метрики -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Тесты приложения и безопасности -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

@@ -45,7 +45,6 @@ public class OutboxPublicationStore {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean markPublished(Publication event) {
-        // Номер попытки защищает запись от запоздавшего подтверждения старого издателя.
         return jdbcClient.sql("""
                 UPDATE outbox_events
                 SET published_at = clock_timestamp(), lease_until = NULL

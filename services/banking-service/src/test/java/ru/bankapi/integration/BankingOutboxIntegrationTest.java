@@ -232,7 +232,6 @@ class BankingOutboxIntegrationTest {
                             moneyRequest("200.00")
                     );
 
-                    // Отправляем SQL в PostgreSQL до отката.
                     accountRepository.flush();
                     transactionRepository.flush();
                     outboxRepository.flush();

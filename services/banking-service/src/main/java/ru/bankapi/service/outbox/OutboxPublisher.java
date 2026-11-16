@@ -34,7 +34,6 @@ public class OutboxPublisher {
             log.warn("Публикация события прервана. Событие={}, попытка={}", event.id(), event.attempt());
             return;
         } catch (ExecutionException | TimeoutException | RuntimeException exception) {
-            // При сбое событие снова доступно после истечения аренды.
             log.warn("Не удалось опубликовать событие в Kafka. Событие={}, попытка={}, ошибка={}",
                     event.id(), event.attempt(), exception.getClass().getSimpleName());
             return;
