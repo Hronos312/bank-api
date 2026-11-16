@@ -5,3 +5,5 @@ target
 *.iml
 README.md
 .env
+secrets
+**/target
