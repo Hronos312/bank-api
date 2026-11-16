@@ -22,6 +22,7 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Явные версии транзитивных зависимостей -->
             <dependency>
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>

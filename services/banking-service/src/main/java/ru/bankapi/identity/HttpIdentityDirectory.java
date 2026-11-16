@@ -55,7 +55,6 @@ class HttpIdentityDirectory implements IdentityDirectory, UserDetailsService {
         try {
             return Optional.of(request(subject));
         } catch (ResourceAccessException firstFailure) {
-            // Повторяем только безопасный запрос чтения после сетевого сбоя.
             try {
                 return Optional.of(request(subject));
             } catch (HttpClientErrorException.NotFound exception) {

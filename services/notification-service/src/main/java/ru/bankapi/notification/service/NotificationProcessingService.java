@@ -88,7 +88,6 @@ public class NotificationProcessingService {
             throw new InvalidBankEventException("Некорректная сумма банковской операции");
         }
 
-        // NUMERIC(19, 2) допускает до 17 цифр перед десятичной точкой.
         if (amount.signum() <= 0 || amount.scale() > 2 || (long) amount.precision() - amount.scale() > 17) {
             throw new InvalidBankEventException("Некорректная сумма банковской операции");
         }
