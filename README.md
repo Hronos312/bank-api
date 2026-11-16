@@ -1,374 +1,116 @@
 # Bank API
 
-REST API for a banking application built with Java and Spring Boot.
+Bank API is a Java 21 banking backend built with Spring Boot, PostgreSQL and Apache Kafka. A single API Gateway serves registration, accounts, cards, transfers, transaction history, spending reports and administration. The microservices retain the V1 HTTP routes.
 
-The project implements user authentication, bank accounts, cards, money operations, transaction history, spending reports, administrative operations, concurrency protection, and Docker deployment.
-
-## Features
-
-### Authentication and users
-
-- User registration
-- Login with JWT authentication
-- BCrypt password hashing
-- CLIENT and ADMIN roles
-- User account blocking and unblocking
-- Administrator bootstrap through environment variables
-
-### Bank accounts
-
-- Create multiple bank accounts
-- RUB currency support
-- View account information and balance
-- ACTIVE, BLOCKED and CLOSED account statuses
-- Account blocking and unblocking
-- Account closing with business-rule validation
-
-### Cards
-
-- Issue a bank card for an account
-- One card per account in V1
-- Luhn-valid card number generation
-- Card expiration date
-- ACTIVE, BLOCKED, EXPIRED and CLOSED statuses
-- Administrative card blocking and unblocking
-
-### Money operations
-
-- Deposit
-- Withdrawal
-- Transfer by bank account number
-- No overdraft
-- Transaction history
-- Spending report
-
-Transfers and withdrawals use pessimistic database locking to protect balances from race conditions.
-
-Locks are acquired in a deterministic order during transfers to reduce the risk of database deadlocks.
-
-### Administration
-
-ADMIN users can:
-
-- View users
-- Create CLIENT users
-- Block and unblock users
-- View bank accounts
-- Block, unblock and close accounts
-- View cards
-- Block and unblock cards
-- View transaction history with pagination
-
-Administrators cannot directly modify account balances or transaction records.
-
-## Technology stack
-
-- Java 21
-- Spring Boot
-- Spring Web
-- Spring Data JPA
-- Hibernate
-- Spring Security
-- JWT
-- PostgreSQL 17
-- Flyway
-- Bean Validation
-- Maven
-- Lombok
-- Docker
-- Docker Compose
-- Testcontainers
-- JUnit 5
-- Mockito
-- Swagger / OpenAPI
+**Stack** · Java 21 · Spring Boot 4 · Spring Cloud Gateway · Spring Security · PostgreSQL 17 · Flyway · Apache Kafka 4.2 (KRaft) · Maven · Docker Compose · Testcontainers
 
 ## Architecture
 
-Gateway routes HTTP requests to Identity and Banking. Identity owns users and signs JWTs. Banking owns accounts, cards, transactions and Outbox. Notification consumes banking events independently. Each stateful service uses its own PostgreSQL database.
-
-The HTTP services retain the layered architecture:
-
-```text
-HTTP Request
-     |
-     v
-Controller
-     |
-     v
-Service
-     |
-     v
-Repository
-     |
-     v
-PostgreSQL
+```mermaid
+flowchart LR
+    Client --> Gateway
+    Gateway --> Identity
+    Gateway --> Banking
+    Banking -->|User status and role| Identity
+    Identity --> IdentityDB[(Identity DB)]
+    Banking --> BankingDB[(Banking DB and Outbox)]
+    BankingDB --> Publisher[Outbox publisher]
+    Publisher --> Kafka[Apache Kafka]
+    Kafka --> Notification
+    Notification --> NotificationDB[(Notification DB)]
+    Notification -->|Invalid events| DLQ[Kafka dead-letter topic]
 ```
 
-Security requests pass through the Spring Security filter chain and JWT authentication filter before reaching protected endpoints.
+| Maven module | Responsibility |
+| --- | --- |
+| [gateway-service](services/gateway-service) | Public HTTP entry point, request routing, JWT verification, authentication rate limiting and OpenAPI aggregation |
+| [identity-service](services/identity-service) | Registration, login, profiles, roles and user blocking. Stores BCrypt password hashes and signs RS256 JWTs |
+| [banking-service](services/banking-service) | RUB accounts, card issuance, deposits, withdrawals, transfers, history and reports. Owns balances and the Outbox |
+| [notification-service](services/notification-service) | Consumes Kafka events, deduplicates by `eventId` and stores notification records in its own database |
+| [web-support](services/web-support) | Shared library for JWT verification, API errors, OpenAPI and HTTP correlation |
 
-Banking stores the user ID assigned by Identity. Accounts link to cards and transactions inside the Banking database.
+Each stateful service owns its PostgreSQL database and Flyway migrations. Gateway verifies the JWT signature. Banking also checks the user's current role and status in Identity before handling a protected request. Administrative routes require `ADMIN`.
 
-```text
-BankAccount (userId)
- |
- +---- Card
+## Run locally
 
-BankTransaction
- |
- +---- sourceAccount
- |
- +---- destinationAccount
-```
+Install a JDK 21 and Docker with Docker Compose. Maven is needed for host-side builds and tests. Docker builds the application images using Maven.
 
-## Security
-
-The API uses stateless JWT authentication.
-
-Public endpoints:
-
-```text
-/api/auth/**
-/swagger-ui/**
-/v3/api-docs/**
-```
-
-Authenticated users can access client API endpoints.
-
-Endpoints under:
-
-```text
-/api/admin/**
-```
-
-require the `ADMIN` role.
-
-Passwords are stored using BCrypt hashes and are never stored in plain text.
-
-## Running with Docker
-
-### Requirements
-
-Use Docker Compose and Java 21. Java generates the local development credentials and runs the Maven reactor.
-
-### 1. Clone the repository
+To try the integration branch before it merges, add `--branch develop/microservices` to the clone command.
 
 ```bash
 git clone https://github.com/Hronos312/bank-api.git
 cd bank-api
-git switch develop/microservices
-```
-
-### 2. Create environment configuration
-
-Generate the RSA keys, database passwords and internal Identity API credential.
-
-```bash
 java tools/GenerateDevSecrets.java
-```
-
-Optional administrator bootstrap settings are in `.env.example`. Pass `--env-file .env` before `--env-file secrets/compose.env` when using these settings.
-
-### 3. Build and start the application
-
-```bash
 docker compose --env-file secrets/compose.env up -d --build --wait
 ```
 
-Gateway exposes the public HTTP API at `127.0.0.1:8080`. Identity, Banking and Notification each own a PostgreSQL 17 database. Kafka has a local development listener at `127.0.0.1:9092`.
+Run the generator once per local setup. It creates database passwords, an internal Identity API token and an RSA key pair under `secrets/`. Keep that directory private and reuse it when restarting the stack.
 
-See the [roadmap](docs/roadmap.md), [service contracts](docs/contracts.md), [migration guide](docs/migration.md) and [operations guide](docs/operations.md).
+| Resource | Default address |
+| --- | --- |
+| Gateway | [http://localhost:8080](http://localhost:8080) |
+| Swagger UI | [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html) |
+| Combined OpenAPI document | [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
+| Gateway readiness | [http://localhost:8080/actuator/health/readiness](http://localhost:8080/actuator/health/readiness) |
+| Kafka development listener | `127.0.0.1:9092` |
 
-Check container status:
+For an initial administrator, copy [`.env.example`](.env.example) to `.env`, set `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_PHONE`, then run `docker compose --env-file .env --env-file secrets/compose.env up -d --build --wait`.
 
 ```bash
 docker compose --env-file secrets/compose.env ps
-```
-
-### 4. Stop the application
-
-```bash
 docker compose --env-file secrets/compose.env down
 ```
 
-Database data is preserved in the Docker volume.
+The stop command preserves database and Kafka volumes. The default Compose configuration is intended for local development.
 
-For a clean test stack, use a separate Compose project with `-p bank-api-smoke`.
+## Try the API
 
-## Swagger / OpenAPI
+In Swagger UI, register a client with `POST /api/auth/register`, sign in with `POST /api/auth/login`, then paste `accessToken` into **Authorize**. Open an account with `POST /api/accounts` and use the returned ID to make a deposit. Use synthetic data on the local stack.
 
-After starting the application, Swagger UI is available at:
+| Area | Routes |
+| --- | --- |
+| Identity | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/users/me` |
+| Accounts | `POST /api/accounts`, `GET /api/accounts`, `GET /api/accounts/{id}` |
+| Cards | `POST /api/accounts/{id}/card`, `GET /api/cards`, `GET /api/cards/{id}` |
+| Money movements | `POST /api/accounts/{id}/deposit`, `POST /api/accounts/{id}/withdraw`, `POST /api/accounts/{id}/transfer` |
+| History and spending | `GET /api/accounts/{id}/transactions`, `GET /api/reports/spending` |
+| Administration | `/api/admin/users`, `/api/admin/accounts`, `/api/admin/cards`, `/api/admin/transactions` |
 
-```text
-http://localhost:8080/swagger-ui/index.html
+Example deposit. Replace `<account-id>` and `<access-token>` with the values from your session.
+
+```http
+POST /api/accounts/<account-id>/deposit
+Authorization: Bearer <access-token>
+Content-Type: application/json
+Idempotency-Key: demo-deposit-001
+
+{"amount":120.00}
 ```
 
-OpenAPI specification:
+Deposits, withdrawals and transfers accept an optional `Idempotency-Key`. For the same user, repeating the same request with the same key returns the original result. Reusing the key for a different operation returns `409 IDEMPOTENCY_CONFLICT`.
 
-```text
-http://localhost:8080/v3/api-docs
-```
+## Transaction and event guarantees
 
-Protected endpoints can be called directly from Swagger UI using the JWT `Authorize` button.
+- **Balance consistency.** Banking locks account rows during balance updates and acquires both locks in ID order for transfers. Balance changes, the transaction record and the Outbox event commit together.
+- **Outbox delivery.** The publisher claims pending events with a short database transaction, then sends them to `bank.transactions.v1`. Events can be delivered more than once, with the original `eventId`.
+- **Notification deduplication.** Notification stores the processed event and its notification in one transaction. It acknowledges an invalid event after publishing it to `bank.transactions.v1.DLT`. Stored notifications are marked `PENDING` for a future delivery channel.
+- **Diagnostics.** Actuator readiness checks, structured application logs in Russian and correlation IDs help follow requests and Kafka events across services.
 
-## API overview
+## Build and verify
 
-### Authentication
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/auth/register` | Register a new CLIENT |
-| POST | `/api/auth/login` | Authenticate and receive JWT |
-
-### User
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/users/me` | Get current user profile |
-
-### Accounts
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/accounts` | Create bank account |
-| GET | `/api/accounts` | Get current user's accounts |
-| GET | `/api/accounts/{accountId}` | Get account |
-| POST | `/api/accounts/{accountId}/deposit` | Deposit money |
-| POST | `/api/accounts/{accountId}/withdraw` | Withdraw money |
-| POST | `/api/accounts/{accountId}/transfer` | Transfer money |
-| GET | `/api/accounts/{accountId}/transactions` | Get transaction history |
-
-### Cards
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/accounts/{accountId}/card` | Issue card |
-| GET | `/api/cards` | Get user's cards |
-| GET | `/api/cards/{cardId}` | Get card |
-
-### Reports
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/reports/spending` | Get spending report |
-
-### Administration
-
-Administrative endpoints are available under:
-
-```text
-/api/admin/**
-```
-
-They provide management operations for users, accounts, cards and transactions.
-
-Full endpoint documentation is available in Swagger UI.
-
-## Spending report
-
-The spending report treats the following operations as expenses:
-
-- withdrawals;
-- transfers to another user's account.
-
-The following operations are not considered expenses:
-
-- deposits;
-- transfers between accounts belonging to the same user.
-
-## Database migrations
-
-The database schema is managed with Flyway.
-
-On application startup Flyway automatically validates and applies migrations from:
-
-```text
-src/main/resources/db/migration
-```
-
-Hibernate is configured to validate the schema instead of creating it automatically.
-
-## Testing
-
-The project contains unit, MVC and integration tests.
-
-Integration tests use PostgreSQL through Testcontainers.
-
-Covered scenarios include:
-
-- registration and authentication;
-- JWT authorization;
-- accounts and cards;
-- deposits and withdrawals;
-- transfers;
-- transaction history;
-- spending reports;
-- Admin API;
-- user/account/card blocking;
-- administrator bootstrap;
-- concurrent withdrawals;
-- concurrent opposite-direction transfers;
-- deadlock prevention;
-- complete client flow;
-- complete administrator flow.
-
-Run all tests:
+From the repository root, with Docker running:
 
 ```bash
-mvn test
+mvn -B clean verify
 ```
 
-Docker must be running because integration tests use Testcontainers.
+The Maven reactor runs unit, MVC and Testcontainers integration tests with PostgreSQL and Kafka. [GitHub Actions](https://github.com/Hronos312/bank-api/actions/workflows/microservices.yml) also runs a Compose smoke test, a migration rehearsal and a dependency scan. See the [operations guide](docs/operations.md) for the recovery scenarios and how to run them locally.
 
-## Concurrency
+## Documentation and versions
 
-Money operations use pessimistic database locking.
+- [Service ownership, HTTP errors and Kafka events](docs/contracts.md)
+- [Data migration and rollback](docs/migration.md)
+- [Operations and troubleshooting](docs/operations.md)
+- [V1 baseline](docs/v1-baseline.md) and [microservices roadmap](docs/roadmap.md)
 
-For example, concurrent withdrawals cannot both read the same old balance and spend the same funds twice.
-
-Transfers lock both participating accounts.
-
-To reduce deadlock probability, accounts are locked in ascending order by their database IDs regardless of transfer direction.
-
-Example:
-
-```text
-Transfer A -> B
-locks A, then B
-
-Transfer B -> A
-also locks A, then B
-```
-
-This guarantees a consistent lock acquisition order.
-
-## Project status
-
-Current version: **V1**
-
-V1 includes:
-
-- authentication;
-- JWT security;
-- users;
-- accounts;
-- cards;
-- money operations;
-- transfers;
-- concurrency protection;
-- transaction history;
-- spending reports;
-- administrative API;
-- OpenAPI documentation;
-- Docker deployment;
-- integration testing.
-
-Possible future improvements:
-
-- multi-currency accounts;
-- transfers by phone number;
-- additional card types;
-- payment operations;
-- transaction filtering and date ranges;
-- refresh tokens;
-- CI/CD;
-- metrics and monitoring.
+The original monolith is available at [`v1.0.0`](https://github.com/Hronos312/bank-api/tree/v1.0.0). The verified microservices release candidate is [`v2.0.0-rc.1`](https://github.com/Hronos312/bank-api/tree/v2.0.0-rc.1).
