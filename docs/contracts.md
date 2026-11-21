@@ -44,8 +44,10 @@ JWT содержит числовой `sub`, `iss=bank-api-identity`, `aud=bank-
 | 401 | `UNAUTHORIZED`, `INVALID_CREDENTIALS` |
 | 403 | `ACCESS_DENIED`, `USER_BLOCKED`, `ACCOUNT_BLOCKED` |
 | 404 | `NOT_FOUND` |
-| 409 | `INVALID_OPERATION`, `IDEMPOTENCY_CONFLICT`, конфликты уникальности Identity |
+| 409 | `INVALID_OPERATION`, `IDEMPOTENCY_CONFLICT`, `ACCOUNT_NUMBER_CONFLICT`, `CARD_NUMBER_CONFLICT`, конфликты уникальности Identity |
 | 429 | `RATE_LIMIT` |
 | 503 | `SERVICE_UNAVAILABLE` |
 
 Ошибка V1 содержит `timestamp`, `status`, `code`, `message` и `path`. Текст прикладной ошибки на русском, код предназначен для обработки клиентом.
+
+При повторном или параллельном выпуске карты к одному счёту успешный выпуск может быть только один. Запрос к счёту с уже выпущенной картой получает 409 с кодом `INVALID_OPERATION`. При совпадении сгенерированного номера Banking пробует подобрать свободный номер. Если пяти попыток недостаточно, API возвращает 409 с кодом `ACCOUNT_NUMBER_CONFLICT` или `CARD_NUMBER_CONFLICT`.

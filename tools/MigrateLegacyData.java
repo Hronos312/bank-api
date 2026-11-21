@@ -4,8 +4,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class MigrateLegacyData {
+
+    private static final Pattern SQLSTATE = Pattern.compile("(?:ERROR|FATAL):\\s+([0-9A-Z]{5})\\s*$");
 
     public static void main(String[] args) throws Exception {
         if (args.length != 6 || !"--apply".equals(args[0])
@@ -32,7 +35,7 @@ public class MigrateLegacyData {
                 importAndVerify(migration, work);
             }
             run(banking.psql("-c", "SELECT count(*) AS accounts, coalesce(sum(balance), 0) AS total_balance"
-                    + " FROM bank_accounts"), null, null);
+                    + " FROM bank_accounts"), null, null, work);
         } finally {
             try (var files = Files.list(work)) {
                 for (Path file : files.toList()) {
@@ -46,7 +49,7 @@ public class MigrateLegacyData {
     private static void verifyEmpty(Migration migration, Path work) throws Exception {
         Path result = work.resolve("preflight.txt");
         for (String table : migration.tables()) {
-            run(migration.target().psql("-c", "SELECT count(*) FROM " + table), null, result);
+            run(migration.target().psql("-c", "SELECT count(*) FROM " + table), null, result, work);
             if (!"0".equals(Files.readString(result).strip())) {
                 throw new IllegalStateException("Целевая таблица уже содержит данные: " + table);
             }
@@ -60,7 +63,7 @@ public class MigrateLegacyData {
             command.add("--table=public." + table);
         }
         Path dump = dumpFile(migration, work);
-        run(command, null, dump);
+        run(command, null, dump, work);
         for (String table : migration.tables()) {
             exportRows(migration.source(), table, work.resolve(table + ".source"));
         }
@@ -78,7 +81,7 @@ public class MigrateLegacyData {
         try (var output = Files.newOutputStream(importFile, StandardOpenOption.APPEND)) {
             Files.copy(dumpFile(migration, work), output);
         }
-        run(migration.target().psql("--single-transaction", "-f", "-"), importFile, work.resolve("import.log"));
+        run(migration.target().psql("--single-transaction", "-f", "-"), importFile, work.resolve("import.log"), work);
 
         for (String table : migration.tables()) {
             Path target = work.resolve(table + ".target");
@@ -94,21 +97,32 @@ public class MigrateLegacyData {
         String key = "processed_events".equals(table) || "outbox_events".equals(table)
                 ? ("processed_events".equals(table) ? "event_id" : "id") : "id";
         run(database.psql("-c", "SET TIME ZONE 'UTC'; SET DateStyle TO 'ISO, YMD';"
-                + " COPY (SELECT * FROM " + table + " ORDER BY " + key + ") TO STDOUT WITH (FORMAT csv)"), null, output);
+                + " COPY (SELECT * FROM " + table + " ORDER BY " + key + ") TO STDOUT WITH (FORMAT csv)"),
+                null, output, output.getParent());
     }
 
     private static Path dumpFile(Migration migration, Path work) {
         return work.resolve(migration.target().name() + ".sql");
     }
 
-    private static void run(List<String> command, Path input, Path output) throws IOException, InterruptedException {
-        var process = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD);
+    private static void run(List<String> command, Path input, Path output, Path work)
+            throws IOException, InterruptedException {
+        Path stderr = work.resolve("postgres.stderr");
+        var process = new ProcessBuilder(command).redirectError(stderr.toFile());
         process.redirectOutput(output == null ? ProcessBuilder.Redirect.INHERIT : ProcessBuilder.Redirect.to(output.toFile()));
         if (input != null) {
             process.redirectInput(input.toFile());
         }
-        if (process.start().waitFor() != 0) {
-            throw new IOException("Команда PostgreSQL не выполнилась в контейнере " + command.get(3));
+        int exitCode = process.start().waitFor();
+        if (exitCode != 0) {
+            try (var lines = Files.lines(stderr)) {
+                String diagnostic = lines.map(SQLSTATE::matcher)
+                        .filter(match -> match.find())
+                        .map(match -> ", SQLSTATE " + match.group(1))
+                        .findFirst().orElse("");
+                throw new IOException("Команда " + command.get(4) + " завершилась с кодом " + exitCode
+                        + " в контейнере " + command.get(3) + diagnostic);
+            }
         }
     }
 
@@ -121,7 +135,7 @@ public class MigrateLegacyData {
         }
 
         List<String> psql(String... arguments) {
-            var command = command("psql", "-XqAt", "-v", "ON_ERROR_STOP=1");
+            var command = command("psql", "-XqAt", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate");
             command.addAll(List.of(arguments));
             return command;
         }

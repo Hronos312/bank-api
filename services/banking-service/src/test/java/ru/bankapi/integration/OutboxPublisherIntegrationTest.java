@@ -30,9 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @Testcontainers
-@SpringBootTest(properties = {
-        "jwt.secret=c29tZS12ZXJ5LWxvbmctdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtb25seS11c2VkLWluLXRlc3Rz"
-})
+@SpringBootTest
 class OutboxPublisherIntegrationTest {
 
     @Container

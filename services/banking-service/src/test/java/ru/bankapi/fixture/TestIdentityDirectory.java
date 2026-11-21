@@ -14,7 +14,7 @@ public class TestIdentityDirectory implements IdentityDirectory {
 
     public TestUser save(TestUser user) {
         user.setId(ids.incrementAndGet());
-        users.put(user.getEmail(), new UserIdentity(user.getId(), user.getStatus()));
+        users.put(user.getId().toString(), new UserIdentity(user.getId(), user.getStatus()));
         return user;
     }
 
@@ -23,7 +23,7 @@ public class TestIdentityDirectory implements IdentityDirectory {
     }
 
     @Override
-    public Optional<UserIdentity> findByUsername(String username) {
-        return Optional.ofNullable(users.get(username));
+    public Optional<UserIdentity> findBySubject(String subject) {
+        return Optional.ofNullable(users.get(subject));
     }
 }

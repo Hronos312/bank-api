@@ -2,9 +2,9 @@ name: Microservices
 
 on:
   push:
-    branches: [develop/microservices]
+    branches: [master, develop/microservices]
   pull_request:
-    branches: [develop/microservices]
+    branches: [master, develop/microservices]
   workflow_dispatch:
 
 permissions:

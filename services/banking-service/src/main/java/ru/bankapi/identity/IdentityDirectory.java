@@ -6,7 +6,7 @@ import java.util.Optional;
 
 public interface IdentityDirectory {
 
-    Optional<UserIdentity> findByUsername(String username);
+    Optional<UserIdentity> findBySubject(String subject);
 
     record UserIdentity(Long id, UserStatus status) {
     }

@@ -47,7 +47,7 @@ class TransferControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnOk() throws Exception {
@@ -63,7 +63,7 @@ class TransferControllerTest {
 
         when(transferService.transfer(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(TransferRequest.class)
         )).thenReturn(response);
 
@@ -108,14 +108,14 @@ class TransferControllerTest {
         verify(transferService)
                 .transfer(
                         eq(10L),
-                        eq("ivan@example.com"),
+                        eq("1"),
                         any(TransferRequest.class)
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnBadRequestWhenAmountIsZero()
@@ -147,7 +147,7 @@ class TransferControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnBadRequestWhenAmountIsMissing()
@@ -176,7 +176,7 @@ class TransferControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnBadRequestWhenDestinationAccountNumberIsMissing()
@@ -206,7 +206,7 @@ class TransferControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnConflictWhenBalanceIsInsufficient()
@@ -214,7 +214,7 @@ class TransferControllerTest {
 
         when(transferService.transfer(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(TransferRequest.class)
         )).thenThrow(
                 new InvalidOperationException(
@@ -246,7 +246,7 @@ class TransferControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void transferShouldReturnNotFoundWhenDestinationAccountDoesNotExist()
@@ -254,7 +254,7 @@ class TransferControllerTest {
 
         when(transferService.transfer(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(TransferRequest.class)
         )).thenThrow(
                 new NotFoundException(

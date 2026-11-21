@@ -31,9 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Testcontainers
 @Import(TestIdentityConfiguration.class)
-@SpringBootTest(properties = {
-        "jwt.secret=c29tZS12ZXJ5LWxvbmctdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtb25seS11c2VkLWluLXRlc3Rz"
-})
+@SpringBootTest
 class SpendingReportIntegrationTest {
 
     @Container
@@ -127,7 +125,7 @@ class SpendingReportIntegrationTest {
 
         transactionService.withdraw(
                 firstAccount.getId(),
-                firstUser.getEmail(),
+                firstUser.getId().toString(),
                 withdrawRequest
         );
 
@@ -144,7 +142,7 @@ class SpendingReportIntegrationTest {
 
         transferService.transfer(
                 firstAccount.getId(),
-                firstUser.getEmail(),
+                firstUser.getId().toString(),
                 ownTransfer
         );
 
@@ -161,13 +159,13 @@ class SpendingReportIntegrationTest {
 
         transferService.transfer(
                 firstAccount.getId(),
-                firstUser.getEmail(),
+                firstUser.getId().toString(),
                 foreignTransfer
         );
 
         SpendingReportResponse report =
                 reportService.getSpendingReport(
-                        firstUser.getEmail()
+                        firstUser.getId().toString()
                 );
 
         assertEquals(

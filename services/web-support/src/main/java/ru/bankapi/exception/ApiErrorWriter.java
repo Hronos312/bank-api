@@ -18,6 +18,9 @@ public class ApiErrorWriter {
 
     public void write(HttpServletRequest request, HttpServletResponse response,
                       int status, String code, String message) throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

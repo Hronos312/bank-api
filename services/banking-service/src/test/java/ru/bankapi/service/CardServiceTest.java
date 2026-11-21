@@ -51,18 +51,17 @@ class CardServiceTest {
 
     @Test
     void issueCardShouldCreateActiveCardForCurrentUserAccount() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         BankAccount account = new BankAccount();
         account.setId(10L);
         account.setUserId(user.getId());
         account.setStatus(AccountStatus.ACTIVE);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
@@ -74,11 +73,7 @@ class CardServiceTest {
         when(cardNumberGenerator.generate())
                 .thenReturn("2200123456789012");
 
-        when(cardRepository.existsByCardNumber(
-                "2200123456789012"
-        )).thenReturn(false);
-
-        when(cardRepository.save(any(Card.class)))
+        when(cardRepository.saveAndFlush(any(Card.class)))
                 .thenAnswer(invocation -> {
                     Card card = invocation.getArgument(0);
                     card.setId(20L);
@@ -98,7 +93,7 @@ class CardServiceTest {
                 .thenReturn(response);
 
         CardResponse result =
-                cardService.issueCard(10L, email);
+                cardService.issueCard(10L, subject);
 
         assertNotNull(result);
         assertEquals(20L, result.getId());
@@ -115,7 +110,7 @@ class CardServiceTest {
         ArgumentCaptor<Card> captor =
                 ArgumentCaptor.forClass(Card.class);
 
-        verify(cardRepository).save(captor.capture());
+        verify(cardRepository).saveAndFlush(captor.capture());
 
         Card savedCard = captor.getValue();
 
@@ -135,74 +130,13 @@ class CardServiceTest {
     }
 
     @Test
-    void issueCardShouldGenerateAnotherNumberWhenFirstAlreadyExists() {
-        String email = "ivan@example.com";
-
-        TestUser user = new TestUser();
-        user.setId(1L);
-        user.setEmail(email);
-
-        BankAccount account = new BankAccount();
-        account.setId(10L);
-        account.setUserId(user.getId());
-        account.setStatus(AccountStatus.ACTIVE);
-
-        when(identityDirectory.findByUsername(email))
-                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
-
-        when(bankAccountRepository.findByIdAndUserId(10L, 1L))
-                .thenReturn(Optional.of(account));
-
-        when(cardRepository.existsByBankAccountId(10L))
-                .thenReturn(false);
-
-        when(cardNumberGenerator.generate())
-                .thenReturn(
-                        "2200123456789012",
-                        "2200987654321098"
-                );
-
-        when(cardRepository.existsByCardNumber(
-                "2200123456789012"
-        )).thenReturn(true);
-
-        when(cardRepository.existsByCardNumber(
-                "2200987654321098"
-        )).thenReturn(false);
-
-        when(cardRepository.save(any(Card.class)))
-                .thenAnswer(invocation ->
-                        invocation.getArgument(0)
-                );
-
-        when(cardMapper.toResponse(any(Card.class)))
-                .thenReturn(new CardResponse());
-
-        cardService.issueCard(10L, email);
-
-        verify(cardNumberGenerator, times(2))
-                .generate();
-
-        verify(cardRepository)
-                .existsByCardNumber(
-                        "2200123456789012"
-                );
-
-        verify(cardRepository)
-                .existsByCardNumber(
-                        "2200987654321098"
-                );
-    }
-
-    @Test
     void issueCardShouldThrowWhenAccountDoesNotBelongToCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -214,12 +148,12 @@ class CardServiceTest {
                 NotFoundException.class,
                 () -> cardService.issueCard(
                         99L,
-                        email
+                        subject
                 )
         );
 
         verify(cardRepository, never())
-                .save(any(Card.class));
+                .saveAndFlush(any(Card.class));
 
         verify(cardNumberGenerator, never())
                 .generate();
@@ -227,18 +161,17 @@ class CardServiceTest {
 
     @Test
     void issueCardShouldThrowWhenAccountIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         BankAccount account = new BankAccount();
         account.setId(10L);
         account.setUserId(user.getId());
         account.setStatus(AccountStatus.BLOCKED);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -250,12 +183,12 @@ class CardServiceTest {
                 InvalidOperationException.class,
                 () -> cardService.issueCard(
                         10L,
-                        email
+                        subject
                 )
         );
 
         verify(cardRepository, never())
-                .save(any(Card.class));
+                .saveAndFlush(any(Card.class));
 
         verify(cardNumberGenerator, never())
                 .generate();
@@ -263,18 +196,17 @@ class CardServiceTest {
 
     @Test
     void issueCardShouldThrowWhenAccountAlreadyHasCard() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         BankAccount account = new BankAccount();
         account.setId(10L);
         account.setUserId(user.getId());
         account.setStatus(AccountStatus.ACTIVE);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -289,12 +221,12 @@ class CardServiceTest {
                 InvalidOperationException.class,
                 () -> cardService.issueCard(
                         10L,
-                        email
+                        subject
                 )
         );
 
         verify(cardRepository, never())
-                .save(any(Card.class));
+                .saveAndFlush(any(Card.class));
 
         verify(cardNumberGenerator, never())
                 .generate();
@@ -302,11 +234,10 @@ class CardServiceTest {
 
     @Test
     void getCardsShouldReturnOnlyCurrentUserCards() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         Card firstCard = new Card();
         firstCard.setId(20L);
@@ -314,7 +245,7 @@ class CardServiceTest {
         Card secondCard = new Card();
         secondCard.setId(21L);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findAllByBankAccountUserId(1L))
@@ -337,7 +268,7 @@ class CardServiceTest {
                 .thenReturn(secondResponse);
 
         List<CardResponse> result =
-                cardService.getCards(email);
+                cardService.getCards(subject);
 
         assertEquals(2, result.size());
         assertEquals(20L, result.get(0).getId());
@@ -349,16 +280,15 @@ class CardServiceTest {
 
     @Test
     void getCardShouldReturnCardOwnedByCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         Card card = new Card();
         card.setId(20L);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findByIdAndBankAccountUserId(
@@ -374,7 +304,7 @@ class CardServiceTest {
                 .thenReturn(response);
 
         CardResponse result =
-                cardService.getCard(20L, email);
+                cardService.getCard(20L, subject);
 
         assertEquals(20L, result.getId());
 
@@ -387,13 +317,12 @@ class CardServiceTest {
 
     @Test
     void getCardShouldThrowWhenCardDoesNotBelongToCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(cardRepository.findByIdAndBankAccountUserId(
@@ -405,7 +334,7 @@ class CardServiceTest {
                 NotFoundException.class,
                 () -> cardService.getCard(
                         99L,
-                        email
+                        subject
                 )
         );
 

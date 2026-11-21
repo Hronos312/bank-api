@@ -1,12 +1,15 @@
 package ru.bankapi.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.CardRepository;
+import ru.bankapi.dal.UniqueConstraints;
 import ru.bankapi.dto.card.CardResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CardStatus;
+import ru.bankapi.exception.DuplicateDataException;
 import ru.bankapi.exception.InvalidOperationException;
 import ru.bankapi.exception.NotFoundException;
 import ru.bankapi.generator.CardNumberGenerator;
@@ -23,14 +26,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CardService {
 
+    private static final int MAX_NUMBER_ATTEMPTS = 5;
+
     private final CardRepository cardRepository;
     private final BankAccountRepository bankAccountRepository;
     private final IdentityDirectory identityDirectory;
     private final CardNumberGenerator cardNumberGenerator;
     private final CardMapper cardMapper;
 
-    public CardResponse issueCard(Long accountId, String email) {
-        UserIdentity user = getUserByEmail(email);
+    public CardResponse issueCard(Long accountId, String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
         BankAccount account = bankAccountRepository
                 .findByIdAndUserId(accountId, user.id())
@@ -43,23 +48,40 @@ public class CardService {
         }
 
         if (cardRepository.existsByBankAccountId(accountId)) {
-            throw new InvalidOperationException("К этому счёту уже выпущена карта");
+            throw cardAlreadyIssued();
         }
 
-        Card card = new Card();
+        LocalDate expirationDate = LocalDate.now().plusYears(3);
+        for (int attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+            Card card = new Card();
+            card.setCardNumber(cardNumberGenerator.generate());
+            card.setBankAccount(account);
+            card.setExpirationDate(expirationDate);
+            card.setStatus(CardStatus.ACTIVE);
 
-        card.setCardNumber(generateUniqueCardNumber());
-        card.setBankAccount(account);
-        card.setExpirationDate(LocalDate.now().plusYears(3));
-        card.setStatus(CardStatus.ACTIVE);
-
-        Card savedCard = cardRepository.save(card);
-
-        return cardMapper.toResponse(savedCard);
+            Card savedCard;
+            try {
+                savedCard = cardRepository.saveAndFlush(card);
+            } catch (DataIntegrityViolationException exception) {
+                if (UniqueConstraints.matches(exception, "cards_bank_account_id_key")) {
+                    throw cardAlreadyIssued();
+                }
+                if (!UniqueConstraints.matches(exception, "cards_card_number_key")) {
+                    throw exception;
+                }
+                continue;
+            }
+            return cardMapper.toResponse(savedCard);
+        }
+        if (cardRepository.existsByBankAccountId(accountId)) {
+            throw cardAlreadyIssued();
+        }
+        throw new DuplicateDataException("CARD_NUMBER_CONFLICT",
+                "Не удалось подобрать свободный номер карты. Повторите запрос");
     }
 
-    public List<CardResponse> getCards(String email) {
-        UserIdentity user = getUserByEmail(email);
+    public List<CardResponse> getCards(String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
         return cardRepository
                 .findAllByBankAccountUserId(user.id())
@@ -68,8 +90,8 @@ public class CardService {
                 .toList();
     }
 
-    public CardResponse getCard(Long cardId, String email) {
-        UserIdentity user = getUserByEmail(email);
+    public CardResponse getCard(Long cardId, String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
         Card card = cardRepository
                 .findByIdAndBankAccountUserId(cardId, user.id())
@@ -78,20 +100,12 @@ public class CardService {
         return cardMapper.toResponse(card);
     }
 
-    private UserIdentity getUserByEmail(String email) {
-        return identityDirectory.findByUsername(email)
+    private UserIdentity getUserBySubject(String subject) {
+        return identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
-    private String generateUniqueCardNumber() {
-        String cardNumber;
-
-        do {
-            cardNumber = cardNumberGenerator.generate();
-        } while (
-                cardRepository.existsByCardNumber(cardNumber)
-        );
-
-        return cardNumber;
+    private InvalidOperationException cardAlreadyIssued() {
+        return new InvalidOperationException("К этому счёту уже выпущена карта");
     }
 }

@@ -1,12 +1,15 @@
 package ru.bankapi.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import ru.bankapi.dal.BankAccountRepository;
+import ru.bankapi.dal.UniqueConstraints;
 import ru.bankapi.dto.account.AccountResponse;
 import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.CurrencyCode;
 import ru.bankapi.exception.NotFoundException;
+import ru.bankapi.exception.DuplicateDataException;
 import ru.bankapi.generator.AccountNumberGenerator;
 import ru.bankapi.mapper.BankAccountMapper;
 import ru.bankapi.model.BankAccount;
@@ -20,29 +23,41 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BankAccountService {
 
+    private static final int MAX_NUMBER_ATTEMPTS = 5;
+
     private final BankAccountRepository bankAccountRepository;
     private final IdentityDirectory identityDirectory;
     private final AccountNumberGenerator accountNumberGenerator;
     private final BankAccountMapper bankAccountMapper;
 
-    public AccountResponse createAccount(String email) {
-        UserIdentity user = getUserByEmail(email);
+    public AccountResponse createAccount(String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
-        BankAccount account = new BankAccount();
+        for (int attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+            BankAccount account = new BankAccount();
+            account.setAccountNumber(accountNumberGenerator.generate());
+            account.setUserId(user.id());
+            account.setBalance(BigDecimal.ZERO);
+            account.setCurrency(CurrencyCode.RUB);
+            account.setStatus(AccountStatus.ACTIVE);
 
-        account.setAccountNumber(generateUniqueAccountNumber());
-        account.setUserId(user.id());
-        account.setBalance(BigDecimal.ZERO);
-        account.setCurrency(CurrencyCode.RUB);
-        account.setStatus(AccountStatus.ACTIVE);
-
-        BankAccount savedAccount = bankAccountRepository.save(account);
-
-        return bankAccountMapper.toResponse(savedAccount);
+            BankAccount savedAccount;
+            try {
+                savedAccount = bankAccountRepository.saveAndFlush(account);
+            } catch (DataIntegrityViolationException exception) {
+                if (!UniqueConstraints.matches(exception, "bank_accounts_account_number_key")) {
+                    throw exception;
+                }
+                continue;
+            }
+            return bankAccountMapper.toResponse(savedAccount);
+        }
+        throw new DuplicateDataException("ACCOUNT_NUMBER_CONFLICT",
+                "Не удалось подобрать свободный номер счёта. Повторите запрос");
     }
 
-    public List<AccountResponse> getAccounts(String email) {
-        UserIdentity user = getUserByEmail(email);
+    public List<AccountResponse> getAccounts(String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
         return bankAccountRepository
                 .findAllByUserId(user.id())
@@ -51,8 +66,8 @@ public class BankAccountService {
                 .toList();
     }
 
-    public AccountResponse getAccount(Long accountId, String email) {
-        UserIdentity user = getUserByEmail(email);
+    public AccountResponse getAccount(Long accountId, String subject) {
+        UserIdentity user = getUserBySubject(subject);
 
         BankAccount account = bankAccountRepository
                 .findByIdAndUserId(accountId, user.id())
@@ -61,20 +76,9 @@ public class BankAccountService {
         return bankAccountMapper.toResponse(account);
     }
 
-    private UserIdentity getUserByEmail(String email) {
-        return identityDirectory.findByUsername(email)
+    private UserIdentity getUserBySubject(String subject) {
+        return identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
-    private String generateUniqueAccountNumber() {
-        String accountNumber;
-
-        do {
-            accountNumber = accountNumberGenerator.generate();
-        } while (
-                bankAccountRepository.existsByAccountNumber(accountNumber)
-        );
-
-        return accountNumber;
-    }
 }

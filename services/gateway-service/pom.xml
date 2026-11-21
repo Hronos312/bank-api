@@ -26,12 +26,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- Тестирование Spring MVC -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
-            <scope>test</scope>
-        </dependency>
         <!-- HTTP-клиент для вызовов сервисов -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

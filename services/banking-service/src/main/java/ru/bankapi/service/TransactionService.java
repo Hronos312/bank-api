@@ -32,8 +32,8 @@ public class TransactionService {
     private final OutboxService outboxService;
 
     @Transactional
-    public TransactionResponse deposit(Long accountId, String email, MoneyOperationRequest request) {
-        UserIdentity user = getActiveUser(email);
+    public TransactionResponse deposit(Long accountId, String subject, MoneyOperationRequest request) {
+        UserIdentity user = getActiveUser(subject);
 
         BankAccount account = getActiveAccount(accountId, user.id());
 
@@ -46,16 +46,12 @@ public class TransactionService {
         transaction.setAmount(request.getAmount());
         transaction.setDescription(request.getDescription());
 
-        BankTransaction savedTransaction = transactionRepository.save(transaction);
-
-        outboxService.recordBankTransaction(savedTransaction);
-
-        return transactionMapper.toResponse(savedTransaction);
+        return saveAndRecord(transaction);
     }
 
     @Transactional
-    public TransactionResponse withdraw(Long accountId, String email, MoneyOperationRequest request) {
-        UserIdentity user = getActiveUser(email);
+    public TransactionResponse withdraw(Long accountId, String subject, MoneyOperationRequest request) {
+        UserIdentity user = getActiveUser(subject);
 
         BankAccount account = getActiveAccount(accountId, user.id());
 
@@ -72,16 +68,12 @@ public class TransactionService {
         transaction.setAmount(request.getAmount());
         transaction.setDescription(request.getDescription());
 
-        BankTransaction savedTransaction = transactionRepository.save(transaction);
-
-        outboxService.recordBankTransaction(savedTransaction);
-
-        return transactionMapper.toResponse(savedTransaction);
+        return saveAndRecord(transaction);
     }
 
     @Transactional(readOnly = true)
-    public List<TransactionResponse> getTransactionHistory(Long accountId, String email) {
-        UserIdentity user = identityDirectory.findByUsername(email)
+    public List<TransactionResponse> getTransactionHistory(Long accountId, String subject) {
+        UserIdentity user = identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         bankAccountRepository.findByIdAndUserId(accountId, user.id())
@@ -94,8 +86,16 @@ public class TransactionService {
                 .toList();
     }
 
-    private UserIdentity getActiveUser(String email) {
-        UserIdentity user = identityDirectory.findByUsername(email)
+    private TransactionResponse saveAndRecord(BankTransaction transaction) {
+        BankTransaction savedTransaction = transactionRepository.save(transaction);
+
+        outboxService.recordBankTransaction(savedTransaction);
+
+        return transactionMapper.toResponse(savedTransaction);
+    }
+
+    private UserIdentity getActiveUser(String subject) {
+        UserIdentity user = identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         if (user.status() != UserStatus.ACTIVE) {

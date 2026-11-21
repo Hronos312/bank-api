@@ -39,7 +39,7 @@ class ReportControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getSpendingReportShouldReturnOk()
@@ -71,7 +71,7 @@ class ReportControllerTest {
         );
 
         when(reportService.getSpendingReport(
-                "ivan@example.com"
+                "1"
         )).thenReturn(response);
 
         mockMvc.perform(
@@ -99,13 +99,13 @@ class ReportControllerTest {
 
         verify(reportService)
                 .getSpendingReport(
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getSpendingReportShouldReturnZeroValues()
@@ -119,7 +119,7 @@ class ReportControllerTest {
         response.setTotalSpent(BigDecimal.ZERO);
 
         when(reportService.getSpendingReport(
-                "ivan@example.com"
+                "1"
         )).thenReturn(response);
 
         mockMvc.perform(

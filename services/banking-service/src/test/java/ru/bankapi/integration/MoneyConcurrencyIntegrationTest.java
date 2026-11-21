@@ -4,6 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -11,6 +15,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import ru.bankapi.dal.BankAccountRepository;
 import ru.bankapi.dal.BankTransactionRepository;
+import ru.bankapi.dal.CardRepository;
 import org.springframework.context.annotation.Import;
 import ru.bankapi.fixture.TestIdentityConfiguration;
 import ru.bankapi.fixture.TestIdentityDirectory;
@@ -20,26 +25,36 @@ import ru.bankapi.enums.AccountStatus;
 import ru.bankapi.enums.TransactionType;
 import ru.bankapi.enums.UserStatus;
 import ru.bankapi.exception.InvalidOperationException;
+import ru.bankapi.exception.DuplicateDataException;
+import ru.bankapi.generator.AccountNumberGenerator;
+import ru.bankapi.generator.CardNumberGenerator;
 import ru.bankapi.model.BankAccount;
 import ru.bankapi.fixture.TestUser;
 import ru.bankapi.service.TransactionService;
+import ru.bankapi.service.BankAccountService;
+import ru.bankapi.service.CardService;
 import ru.bankapi.service.TransferService;
 
 import java.math.BigDecimal;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @Testcontainers
 @Import(TestIdentityConfiguration.class)
-@SpringBootTest(properties = {
-        "jwt.secret=c29tZS12ZXJ5LWxvbmctdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtb25seS11c2VkLWluLXRlc3Rz"
-})
+@SpringBootTest
+@AutoConfigureMockMvc
 class MoneyConcurrencyIntegrationTest {
 
     @Container
@@ -84,11 +99,99 @@ class MoneyConcurrencyIntegrationTest {
     @Autowired
     private BankTransactionRepository transactionRepository;
 
+    @Autowired
+    private CardRepository cardRepository;
+
+    @Autowired
+    private BankAccountService bankAccountService;
+
+    @Autowired
+    private CardService cardService;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private AccountNumberGenerator accountNumberGenerator;
+
+    @MockitoBean
+    private CardNumberGenerator cardNumberGenerator;
+
     @BeforeEach
     void cleanDatabase() {
         transactionRepository.deleteAll();
+        cardRepository.deleteAll();
         bankAccountRepository.deleteAll();
         identityDirectory.deleteAll();
+    }
+
+    @Test
+    void retriesAccountNumberAfterDatabaseConflict() {
+        TestUser owner = createUser("ivan@example.com", "+79990000001");
+        String existing = "40817810000000000001";
+        String free = "40817810000000000002";
+        createAccount(owner, existing, "0.00");
+        when(accountNumberGenerator.generate()).thenReturn(existing, free);
+
+        var account = bankAccountService.createAccount(owner.getId().toString());
+
+        assertEquals(free, account.getAccountNumber());
+        assertEquals(2, bankAccountRepository.count());
+    }
+
+    @Test
+    void stopsRetryingUnavailableAccountNumbers() {
+        TestUser owner = createUser("ivan@example.com", "+79990000001");
+        String existing = "40817810000000000001";
+        createAccount(owner, existing, "0.00");
+        when(accountNumberGenerator.generate()).thenReturn(existing);
+
+        var error = assertThrows(DuplicateDataException.class,
+                () -> bankAccountService.createAccount(owner.getId().toString()));
+
+        assertEquals("ACCOUNT_NUMBER_CONFLICT", error.getCode());
+        verify(accountNumberGenerator, times(5)).generate();
+        assertEquals(1, bankAccountRepository.count());
+    }
+
+    @Test
+    void retriesCardNumberAfterDatabaseConflict() {
+        TestUser owner = createUser("ivan@example.com", "+79990000001");
+        var first = createAccount(owner, "40817810000000000001", "0.00");
+        var second = createAccount(owner, "40817810000000000002", "0.00");
+        when(cardNumberGenerator.generate()).thenReturn("2200123456789012", "2200123456789012", "2200987654321098");
+        String subject = owner.getId().toString();
+
+        cardService.issueCard(first.getId(), subject);
+        cardService.issueCard(second.getId(), subject);
+
+        assertEquals("2200987654321098", cardRepository.findByBankAccountId(second.getId()).orElseThrow().getCardNumber());
+        assertEquals(2, cardRepository.count());
+    }
+
+    @Test
+    void competingCardRequestsReturnOneCreatedAndOneConflict() throws Exception {
+        TestUser owner = createUser("ivan@example.com", "+79990000001");
+        var account = createAccount(owner, "40817810000000000001", "0.00");
+        var bothPassedPrecheck = new CyclicBarrier(2);
+        var numbers = new java.util.concurrent.atomic.AtomicInteger();
+        when(cardNumberGenerator.generate()).thenAnswer(invocation -> {
+            bothPassedPrecheck.await(10, TimeUnit.SECONDS);
+            return numbers.getAndIncrement() == 0 ? "2200123456789012" : "2200987654321098";
+        });
+        Callable<MvcResult> issueCard = () -> mockMvc.perform(post("/api/accounts/{id}/card", account.getId())
+                .with(user(owner.getId().toString()).roles("CLIENT"))).andReturn();
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(issueCard);
+            var second = executor.submit(issueCard);
+            var responses = java.util.stream.Stream.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))
+                    .map(MvcResult::getResponse).toList();
+            assertEquals(java.util.List.of(201, 409), responses.stream().map(response -> response.getStatus()).sorted().toList());
+            var conflict = responses.stream().filter(response -> response.getStatus() == 409).findFirst().orElseThrow();
+            assertTrue(conflict.getContentAsString().contains("\"code\":\"INVALID_OPERATION\""));
+        }
+        assertEquals(1, cardRepository.count());
     }
 
     @Test
@@ -132,7 +235,7 @@ class MoneyConcurrencyIntegrationTest {
             try {
                 transactionService.withdraw(
                         accountId,
-                        user.getEmail(),
+                        user.getId().toString(),
                         request
                 );
 
@@ -256,7 +359,7 @@ class MoneyConcurrencyIntegrationTest {
 
             transferService.transfer(
                     firstAccount.getId(),
-                    firstUser.getEmail(),
+                    firstUser.getId().toString(),
                     request
             );
 
@@ -281,7 +384,7 @@ class MoneyConcurrencyIntegrationTest {
 
             transferService.transfer(
                     secondAccount.getId(),
-                    secondUser.getEmail(),
+                    secondUser.getId().toString(),
                     request
             );
 

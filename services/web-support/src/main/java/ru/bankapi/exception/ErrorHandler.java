@@ -43,17 +43,7 @@ public class ErrorHandler {
             DuplicateDataException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.CONFLICT;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                exception.getCode(),
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.CONFLICT, exception.getCode(), exception.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -61,8 +51,6 @@ public class ErrorHandler {
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -70,15 +58,7 @@ public class ErrorHandler {
                 .map(error -> error.getDefaultMessage())
                 .orElse("Ошибка валидации");
 
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "VALIDATION_ERROR",
-                message,
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, request);
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
@@ -86,17 +66,7 @@ public class ErrorHandler {
             InvalidCredentialsException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.UNAUTHORIZED;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "INVALID_CREDENTIALS",
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", exception.getMessage(), request);
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -104,17 +74,7 @@ public class ErrorHandler {
             NotFoundException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.NOT_FOUND;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "NOT_FOUND",
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.NOT_FOUND, "NOT_FOUND", exception.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidOperationException.class)
@@ -122,17 +82,7 @@ public class ErrorHandler {
             InvalidOperationException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.CONFLICT;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "INVALID_OPERATION",
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.CONFLICT, "INVALID_OPERATION", exception.getMessage(), request);
     }
 
     @ExceptionHandler(AccountBlockedException.class)
@@ -140,17 +90,7 @@ public class ErrorHandler {
             AccountBlockedException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.FORBIDDEN;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "ACCOUNT_BLOCKED",
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status).body(response);
+        return error(HttpStatus.FORBIDDEN, "ACCOUNT_BLOCKED", exception.getMessage(), request);
     }
 
     @ExceptionHandler(BadRequestException.class)
@@ -158,16 +98,6 @@ public class ErrorHandler {
             BadRequestException exception,
             HttpServletRequest request
     ) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                "BAD_REQUEST",
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-
-        return ResponseEntity.status(status)    .body(response);
+        return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", exception.getMessage(), request);
     }
 }

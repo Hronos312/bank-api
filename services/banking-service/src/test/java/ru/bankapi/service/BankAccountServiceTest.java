@@ -45,23 +45,18 @@ class BankAccountServiceTest {
 
     @Test
     void createAccountShouldCreateActiveRubAccountWithZeroBalance() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(accountNumberGenerator.generate())
                 .thenReturn("40817810000000000001");
 
-        when(bankAccountRepository.existsByAccountNumber(
-                "40817810000000000001"
-        )).thenReturn(false);
-
-        when(bankAccountRepository.save(any(BankAccount.class)))
+        when(bankAccountRepository.saveAndFlush(any(BankAccount.class)))
                 .thenAnswer(invocation -> {
                     BankAccount account =
                             invocation.getArgument(0);
@@ -81,7 +76,7 @@ class BankAccountServiceTest {
                 .thenReturn(response);
 
         AccountResponse result =
-                bankAccountService.createAccount(email);
+                bankAccountService.createAccount(subject);
 
         assertNotNull(result);
         assertEquals(10L, result.getId());
@@ -100,7 +95,7 @@ class BankAccountServiceTest {
                 ArgumentCaptor.forClass(BankAccount.class);
 
         verify(bankAccountRepository)
-                .save(captor.capture());
+                .saveAndFlush(captor.capture());
 
         BankAccount savedAccount = captor.getValue();
 
@@ -124,61 +119,11 @@ class BankAccountServiceTest {
     }
 
     @Test
-    void createAccountShouldGenerateAnotherNumberWhenFirstAlreadyExists() {
-        String email = "ivan@example.com";
-
-        TestUser user = new TestUser();
-        user.setId(1L);
-        user.setEmail(email);
-
-        when(identityDirectory.findByUsername(email))
-                .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
-
-        when(accountNumberGenerator.generate())
-                .thenReturn(
-                        "40817810000000000001",
-                        "40817810000000000002"
-                );
-
-        when(bankAccountRepository.existsByAccountNumber(
-                "40817810000000000001"
-        )).thenReturn(true);
-
-        when(bankAccountRepository.existsByAccountNumber(
-                "40817810000000000002"
-        )).thenReturn(false);
-
-        when(bankAccountRepository.save(any(BankAccount.class)))
-                .thenAnswer(invocation ->
-                        invocation.getArgument(0)
-                );
-
-        when(bankAccountMapper.toResponse(any(BankAccount.class)))
-                .thenReturn(new AccountResponse());
-
-        bankAccountService.createAccount(email);
-
-        verify(accountNumberGenerator, times(2))
-                .generate();
-
-        verify(bankAccountRepository)
-                .existsByAccountNumber(
-                        "40817810000000000001"
-                );
-
-        verify(bankAccountRepository)
-                .existsByAccountNumber(
-                        "40817810000000000002"
-                );
-    }
-
-    @Test
     void getAccountsShouldReturnOnlyCurrentUserAccounts() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         BankAccount firstAccount = new BankAccount();
         firstAccount.setId(10L);
@@ -186,7 +131,7 @@ class BankAccountServiceTest {
         BankAccount secondAccount = new BankAccount();
         secondAccount.setId(11L);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findAllByUserId(1L))
@@ -209,7 +154,7 @@ class BankAccountServiceTest {
                 .thenReturn(secondResponse);
 
         List<AccountResponse> result =
-                bankAccountService.getAccounts(email);
+                bankAccountService.getAccounts(subject);
 
         assertEquals(2, result.size());
         assertEquals(10L, result.get(0).getId());
@@ -221,17 +166,16 @@ class BankAccountServiceTest {
 
     @Test
     void getAccountShouldReturnAccountOwnedByCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
         BankAccount account = new BankAccount();
         account.setId(10L);
         account.setUserId(user.getId());
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -247,7 +191,7 @@ class BankAccountServiceTest {
                 .thenReturn(response);
 
         AccountResponse result =
-                bankAccountService.getAccount(10L, email);
+                bankAccountService.getAccount(10L, subject);
 
         assertEquals(10L, result.getId());
 
@@ -257,13 +201,12 @@ class BankAccountServiceTest {
 
     @Test
     void getAccountShouldThrowWhenAccountDoesNotBelongToCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = new TestUser();
         user.setId(1L);
-        user.setEmail(email);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -275,7 +218,7 @@ class BankAccountServiceTest {
                 NotFoundException.class,
                 () -> bankAccountService.getAccount(
                         99L,
-                        email
+                        subject
                 )
         );
 
