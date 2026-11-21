@@ -16,10 +16,6 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long> 
 
     Optional<BankAccount> findByIdAndUserId(Long id, Long userId);
 
-    Optional<BankAccount> findByAccountNumber(String accountNumber);
-
-    boolean existsByAccountNumber(String accountNumber);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT a

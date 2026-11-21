@@ -13,18 +13,19 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import ru.bankapi.dal.OutboxEventRepository;
+import ru.bankapi.enums.TransactionType;
+import ru.bankapi.model.BankAccount;
+import ru.bankapi.model.BankTransaction;
 import ru.bankapi.model.OutboxEvent;
 import ru.bankapi.service.outbox.OutboxService;
 
-import java.util.Map;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
-@SpringBootTest(properties = {
-        "jwt.secret=c29tZS12ZXJ5LWxvbmctdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtb25seS11c2VkLWluLXRlc3Rz"
-})
+@SpringBootTest
 class OutboxPersistenceIntegrationTest {
 
     @Container
@@ -61,15 +62,7 @@ class OutboxPersistenceIntegrationTest {
     @Test
     void shouldPersistEventAfterCommit() {
         UUID eventId = transactionTemplate.execute(status ->
-                outboxService.record(
-                        "account-10",
-                        "DEPOSIT_COMPLETED",
-                        Map.of(
-                                "transactionId", 100L,
-                                "amount", "500.00",
-                                "currency", "RUB"
-                        )
-                )
+                outboxService.recordBankTransaction(deposit())
         );
 
         assertNotNull(eventId);
@@ -89,11 +82,7 @@ class OutboxPersistenceIntegrationTest {
     @Test
     void shouldRollbackEventWhenTransactionFails() {
         UUID eventId = transactionTemplate.execute(status -> {
-            UUID id = outboxService.record(
-                    "account-10",
-                    "WITHDRAWAL_COMPLETED",
-                    Map.of("amount", "200.00")
-            );
+            UUID id = outboxService.recordBankTransaction(deposit());
 
             outboxRepository.flush();
 
@@ -110,11 +99,19 @@ class OutboxPersistenceIntegrationTest {
     void shouldRejectRecordWithoutActiveTransaction() {
         assertThrows(
                 IllegalTransactionStateException.class,
-                () -> outboxService.record(
-                        "account-10",
-                        "DEPOSIT_COMPLETED",
-                        Map.of("amount", "100.00")
-                )
+                () -> outboxService.recordBankTransaction(deposit())
         );
+    }
+
+    private BankTransaction deposit() {
+        BankAccount account = new BankAccount();
+        account.setId(10L);
+
+        BankTransaction transaction = new BankTransaction();
+        transaction.setId(100L);
+        transaction.setType(TransactionType.DEPOSIT);
+        transaction.setDestinationAccount(account);
+        transaction.setAmount(new BigDecimal("500.00"));
+        return transaction;
     }
 }

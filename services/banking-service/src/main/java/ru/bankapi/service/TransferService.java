@@ -30,8 +30,8 @@ public class TransferService {
     private final OutboxService outboxService;
 
     @Transactional
-    public TransactionResponse transfer(Long sourceAccountId, String email, TransferRequest request) {
-        UserIdentity user = getActiveUser(email);
+    public TransactionResponse transfer(Long sourceAccountId, String subject, TransferRequest request) {
+        UserIdentity user = getActiveUser(subject);
 
         Long destinationAccountId = bankAccountRepository.findIdByAccountNumber(request.getDestinationAccountNumber())
                 .orElseThrow(() -> new NotFoundException("Счёт получателя не найден"));
@@ -89,8 +89,8 @@ public class TransferService {
         return transactionMapper.toResponse(savedTransaction);
     }
 
-    private UserIdentity getActiveUser(String email) {
-        UserIdentity user = identityDirectory.findByUsername(email)
+    private UserIdentity getActiveUser(String subject) {
+        UserIdentity user = identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         if (user.status() != UserStatus.ACTIVE) {

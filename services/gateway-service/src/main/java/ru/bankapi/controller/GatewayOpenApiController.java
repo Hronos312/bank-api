@@ -3,6 +3,8 @@ package ru.bankapi.controller;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Hidden;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +18,8 @@ import java.time.Duration;
 @Hidden
 @RestController
 class GatewayOpenApiController {
+
+    private static final Logger log = LoggerFactory.getLogger(GatewayOpenApiController.class);
 
     private final RestClient client;
     private final ObjectMapper json;
@@ -59,13 +63,21 @@ class GatewayOpenApiController {
         throw new ServiceUnavailableException("Сервис вернул пустое описание API");
     }
 
-    private void merge(ObjectNode paths, ObjectNode components, ObjectNode source) {
+    static void merge(ObjectNode paths, ObjectNode components, ObjectNode source) {
         if (source.get("paths") instanceof ObjectNode sourcePaths) {
             paths.setAll(sourcePaths);
         }
         source.path("components").properties().forEach(entry -> {
             if (entry.getValue() instanceof ObjectNode values) {
-                components.withObjectProperty(entry.getKey()).setAll(values);
+                var merged = components.withObjectProperty(entry.getKey());
+                values.properties().forEach(component -> {
+                    var existing = merged.get(component.getKey());
+                    if (existing != null && !existing.equals(component.getValue())) {
+                        log.warn("Конфликт компонентов OpenAPI в разделе {}, имя {}", entry.getKey(), component.getKey());
+                        throw new ServiceUnavailableException("Сервисы вернули несовместимые описания API");
+                    }
+                    merged.set(component.getKey(), component.getValue());
+                });
             }
         });
     }

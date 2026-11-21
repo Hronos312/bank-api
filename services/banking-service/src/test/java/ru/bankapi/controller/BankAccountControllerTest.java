@@ -42,13 +42,13 @@ class BankAccountControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void createAccountShouldReturnCreated() throws Exception {
         AccountResponse response = createAccountResponse();
 
-        when(bankAccountService.createAccount("ivan@example.com"))
+        when(bankAccountService.createAccount("1"))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/accounts"))
@@ -72,12 +72,12 @@ class BankAccountControllerTest {
                 );
 
         verify(bankAccountService)
-                .createAccount("ivan@example.com");
+                .createAccount("1");
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getAccountsShouldReturnCurrentUserAccounts()
@@ -92,7 +92,7 @@ class BankAccountControllerTest {
         second.setCurrency(CurrencyCode.RUB);
         second.setStatus(AccountStatus.ACTIVE);
 
-        when(bankAccountService.getAccounts("ivan@example.com"))
+        when(bankAccountService.getAccounts("1"))
                 .thenReturn(List.of(first, second));
 
         mockMvc.perform(get("/api/accounts"))
@@ -110,12 +110,12 @@ class BankAccountControllerTest {
                 );
 
         verify(bankAccountService)
-                .getAccounts("ivan@example.com");
+                .getAccounts("1");
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getAccountShouldReturnCurrentUserAccount()
@@ -125,7 +125,7 @@ class BankAccountControllerTest {
 
         when(bankAccountService.getAccount(
                 10L,
-                "ivan@example.com"
+                "1"
         )).thenReturn(response);
 
         mockMvc.perform(get("/api/accounts/10"))
@@ -147,13 +147,13 @@ class BankAccountControllerTest {
         verify(bankAccountService)
                 .getAccount(
                         10L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getAccountShouldReturnNotFoundWhenAccountDoesNotExist()
@@ -161,7 +161,7 @@ class BankAccountControllerTest {
 
         when(bankAccountService.getAccount(
                 99L,
-                "ivan@example.com"
+                "1"
         )).thenThrow(
                 new NotFoundException("Счёт не найден")
         );
@@ -180,7 +180,7 @@ class BankAccountControllerTest {
         verify(bankAccountService)
                 .getAccount(
                         99L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 

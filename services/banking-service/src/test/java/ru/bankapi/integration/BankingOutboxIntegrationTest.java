@@ -42,9 +42,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
 @Import(TestIdentityConfiguration.class)
-@SpringBootTest(properties = {
-        "jwt.secret=c29tZS12ZXJ5LWxvbmctdGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtb25seS11c2VkLWluLXRlc3Rz"
-})
+@SpringBootTest
 class BankingOutboxIntegrationTest {
 
     @Container
@@ -108,7 +106,7 @@ class BankingOutboxIntegrationTest {
                 moneyRequest("500.00");
 
         TransactionResponse response = transactionService.deposit(
-                account.getId(), user.getEmail(), request
+                account.getId(), user.getId().toString(), request
         );
 
         assertEquals(1, transactionRepository.count());
@@ -136,7 +134,7 @@ class BankingOutboxIntegrationTest {
             java.util.concurrent.Callable<TransactionResponse> call = () -> {
                 assertTrue(start.await(5, TimeUnit.SECONDS));
                 return idempotency.execute(user.getId(), key, operation,
-                        () -> transactionService.deposit(account.getId(), user.getEmail(), request));
+                        () -> transactionService.deposit(account.getId(), user.getId().toString(), request));
             };
             var first = workers.submit(call);
             var second = workers.submit(call);
@@ -162,7 +160,7 @@ class BankingOutboxIntegrationTest {
 
         TransactionResponse response = transactionService.withdraw(
                 account.getId(),
-                user.getEmail(),
+                user.getId().toString(),
                 moneyRequest("250.00")
         );
 
@@ -197,7 +195,7 @@ class BankingOutboxIntegrationTest {
         request.setAmount(new BigDecimal("300.00"));
 
         TransactionResponse response = transferService.transfer(
-                source.getId(), sender.getEmail(), request
+                source.getId(), sender.getId().toString(), request
         );
 
         assertBalance(source.getId(), "700.00");
@@ -228,7 +226,7 @@ class BankingOutboxIntegrationTest {
 
                     transactionService.withdraw(
                             account.getId(),
-                            user.getEmail(),
+                            user.getId().toString(),
                             moneyRequest("200.00")
                     );
 

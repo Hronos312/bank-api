@@ -35,7 +35,7 @@ class HttpIdentityDirectory implements IdentityDirectory, UserDetailsService {
     }
 
     @Override
-    public Optional<UserIdentity> findByUsername(String subject) {
+    public Optional<UserIdentity> findBySubject(String subject) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof BankingPrincipal principal
                 && principal.getUsername().equals(subject)) {

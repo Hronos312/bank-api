@@ -54,17 +54,15 @@ class TransferServiceTest {
 
     @Test
     void transferShouldMoveMoneyAndCreateTransferTransaction() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 2L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -89,7 +87,7 @@ class TransferServiceTest {
 
         request.setDescription("Перевод");
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -121,7 +119,7 @@ class TransferServiceTest {
 
         TransactionResponse result = transferService.transfer(
                 10L,
-                email,
+                subject,
                 request
         );
 
@@ -183,17 +181,15 @@ class TransferServiceTest {
 
     @Test
     void transferShouldLockAccountsInAscendingIdOrder() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 2L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -216,7 +212,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -237,7 +233,7 @@ class TransferServiceTest {
 
         transferService.transfer(
                 20L,
-                email,
+                subject,
                 request
         );
 
@@ -269,17 +265,15 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenBalanceIsInsufficient() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 2L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -302,7 +296,7 @@ class TransferServiceTest {
                 "500.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -319,7 +313,7 @@ class TransferServiceTest {
                 InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -344,11 +338,10 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenDestinationAccountDoesNotExist() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
@@ -357,7 +350,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -368,7 +361,7 @@ class TransferServiceTest {
                 NotFoundException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -382,11 +375,10 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenSourceAccountDoesNotExist() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
@@ -395,7 +387,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -409,7 +401,7 @@ class TransferServiceTest {
                 NotFoundException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -423,23 +415,20 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenSourceAccountDoesNotBelongToUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser currentUser = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser anotherUser = createUser(
                 2L,
-                "another@example.com",
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 3L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -462,7 +451,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(currentUser.getId(), currentUser.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -479,7 +468,7 @@ class TransferServiceTest {
                 NotFoundException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -490,17 +479,15 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenSourceAccountIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 2L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -525,7 +512,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -542,7 +529,7 @@ class TransferServiceTest {
                 InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -553,17 +540,15 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenDestinationAccountIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
         TestUser recipient = createUser(
                 2L,
-                "recipient@example.com",
                 UserStatus.ACTIVE
         );
 
@@ -588,7 +573,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -605,7 +590,7 @@ class TransferServiceTest {
                 InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -616,11 +601,10 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenSourceAndDestinationAreSameAccount() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.ACTIVE
         );
 
@@ -629,7 +613,7 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findIdByAccountNumber(
@@ -640,7 +624,7 @@ class TransferServiceTest {
                 InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -654,11 +638,10 @@ class TransferServiceTest {
 
     @Test
     void transferShouldThrowWhenUserIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
         TestUser user = createUser(
                 1L,
-                email,
                 UserStatus.BLOCKED
         );
 
@@ -667,14 +650,14 @@ class TransferServiceTest {
                 "100.00"
         );
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         assertThrows(
                 InvalidOperationException.class,
                 () -> transferService.transfer(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -687,13 +670,11 @@ class TransferServiceTest {
 
     private TestUser createUser(
             Long id,
-            String email,
             UserStatus status
     ) {
         TestUser user = new TestUser();
 
         user.setId(id);
-        user.setEmail(email);
         user.setStatus(status);
 
         return user;

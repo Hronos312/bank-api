@@ -34,14 +34,11 @@ class ReportServiceTest {
 
     @Test
     void getSpendingReportShouldReturnAggregatedValues() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createUser(
-                1L,
-                email
-        );
+        TestUser user = createUser(1L);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(transactionRepository.sumBySourceUserIdAndType(
@@ -55,7 +52,7 @@ class ReportServiceTest {
         )).thenReturn(new BigDecimal("1000.00"));
 
         SpendingReportResponse result =
-                reportService.getSpendingReport(email);
+                reportService.getSpendingReport(subject);
 
         assertNotNull(result);
 
@@ -94,14 +91,11 @@ class ReportServiceTest {
 
     @Test
     void getSpendingReportShouldReturnZeroWhenUserHasNoExpenses() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createUser(
-                1L,
-                email
-        );
+        TestUser user = createUser(1L);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(transactionRepository.sumBySourceUserIdAndType(
@@ -115,7 +109,7 @@ class ReportServiceTest {
         )).thenReturn(BigDecimal.ZERO);
 
         SpendingReportResponse result =
-                reportService.getSpendingReport(email);
+                reportService.getSpendingReport(subject);
 
         assertEquals(
                 0,
@@ -141,25 +135,21 @@ class ReportServiceTest {
 
     @Test
     void getSpendingReportShouldThrowWhenUserDoesNotExist() {
-        String email = "missing@example.com";
+        String subject = "999";
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 NotFoundException.class,
-                () -> reportService.getSpendingReport(email)
+                () -> reportService.getSpendingReport(subject)
         );
     }
 
-    private TestUser createUser(
-            Long id,
-            String email
-    ) {
+    private TestUser createUser(Long id) {
         TestUser user = new TestUser();
 
         user.setId(id);
-        user.setEmail(email);
         user.setStatus(UserStatus.ACTIVE);
 
         return user;

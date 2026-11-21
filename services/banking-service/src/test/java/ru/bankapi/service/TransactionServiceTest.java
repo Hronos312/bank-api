@@ -54,16 +54,16 @@ class TransactionServiceTest {
 
     @Test
     void depositShouldIncreaseBalanceAndCreateDepositTransaction() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "1000.00");
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("500.00"));
         request.setDescription("Пополнение");
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
@@ -87,7 +87,7 @@ class TransactionServiceTest {
 
         TransactionResponse result = transactionService.deposit(
                 10L,
-                email,
+                subject,
                 request
         );
 
@@ -140,16 +140,16 @@ class TransactionServiceTest {
 
     @Test
     void withdrawShouldDecreaseBalanceAndCreateWithdrawalTransaction() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "1000.00");
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("250.00"));
         request.setDescription("Снятие");
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
@@ -163,7 +163,7 @@ class TransactionServiceTest {
 
         transactionService.withdraw(
                 10L,
-                email,
+                subject,
                 request
         );
 
@@ -214,15 +214,15 @@ class TransactionServiceTest {
 
     @Test
     void withdrawShouldThrowWhenBalanceIsInsufficient() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "100.00");
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("500.00"));
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
@@ -232,7 +232,7 @@ class TransactionServiceTest {
                 InvalidOperationException.class,
                 () -> transactionService.withdraw(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -251,22 +251,22 @@ class TransactionServiceTest {
 
     @Test
     void depositShouldThrowWhenUserIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         user.setStatus(UserStatus.BLOCKED);
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         assertThrows(
                 InvalidOperationException.class,
                 () -> transactionService.deposit(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -280,16 +280,16 @@ class TransactionServiceTest {
 
     @Test
     void depositShouldThrowWhenAccountIsBlocked() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "1000.00");
         account.setStatus(AccountStatus.BLOCKED);
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(10L, 1L))
@@ -299,7 +299,7 @@ class TransactionServiceTest {
                 InvalidOperationException.class,
                 () -> transactionService.deposit(
                         10L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -310,14 +310,14 @@ class TransactionServiceTest {
 
     @Test
     void depositShouldThrowWhenAccountDoesNotBelongToCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
 
         MoneyOperationRequest request = new MoneyOperationRequest();
         request.setAmount(new BigDecimal("100.00"));
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserIdForUpdate(99L, 1L))
@@ -327,7 +327,7 @@ class TransactionServiceTest {
                 NotFoundException.class,
                 () -> transactionService.deposit(
                         99L,
-                        email,
+                        subject,
                         request
                 )
         );
@@ -338,9 +338,9 @@ class TransactionServiceTest {
 
     @Test
     void getTransactionHistoryShouldReturnCurrentUserAccountTransactions() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "1000.00");
 
         BankTransaction firstTransaction = new BankTransaction();
@@ -351,7 +351,7 @@ class TransactionServiceTest {
         secondTransaction.setId(19L);
         secondTransaction.setType(TransactionType.DEPOSIT);
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
@@ -388,7 +388,7 @@ class TransactionServiceTest {
         List<TransactionResponse> result =
                 transactionService.getTransactionHistory(
                         10L,
-                        email
+                        subject
                 );
 
         assertEquals(2, result.size());
@@ -425,12 +425,12 @@ class TransactionServiceTest {
 
     @Test
     void getTransactionHistoryShouldReturnEmptyListWhenAccountHasNoTransactions() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
         BankAccount account = createActiveAccount(user, "0.00");
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(10L, 1L))
@@ -446,7 +446,7 @@ class TransactionServiceTest {
         List<TransactionResponse> result =
                 transactionService.getTransactionHistory(
                         10L,
-                        email
+                        subject
                 );
 
         assertNotNull(result);
@@ -461,11 +461,11 @@ class TransactionServiceTest {
 
     @Test
     void getTransactionHistoryShouldThrowWhenAccountDoesNotBelongToCurrentUser() {
-        String email = "ivan@example.com";
+        String subject = "1";
 
-        TestUser user = createActiveUser(email);
+        TestUser user = createActiveUser();
 
-        when(identityDirectory.findByUsername(email))
+        when(identityDirectory.findBySubject(subject))
                 .thenReturn(Optional.of(new IdentityDirectory.UserIdentity(user.getId(), user.getStatus())));
 
         when(bankAccountRepository.findByIdAndUserId(
@@ -478,7 +478,7 @@ class TransactionServiceTest {
                 () -> transactionService
                         .getTransactionHistory(
                                 99L,
-                                email
+                                subject
                         )
         );
 
@@ -489,11 +489,10 @@ class TransactionServiceTest {
                 );
     }
 
-    private TestUser createActiveUser(String email) {
+    private TestUser createActiveUser() {
         TestUser user = new TestUser();
 
         user.setId(1L);
-        user.setEmail(email);
         user.setStatus(UserStatus.ACTIVE);
 
         return user;

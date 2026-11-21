@@ -4,9 +4,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class GenerateDevSecrets {
@@ -23,16 +26,27 @@ public class GenerateDevSecrets {
         var rsa = KeyPairGenerator.getInstance("RSA");
         rsa.initialize(3072);
         var keys = rsa.generateKeyPair();
-        write(directory.resolve("jwt-private.pem"), pem("PRIVATE KEY", keys.getPrivate().getEncoded()));
-        write(directory.resolve("jwt-public.pem"), pem("PUBLIC KEY", keys.getPublic().getEncoded()));
-
         var random = new SecureRandom();
-        write(directory.resolve("compose.env"), """
-                BANKING_DB_PASSWORD=%s
-                IDENTITY_DB_PASSWORD=%s
-                NOTIFICATION_DB_PASSWORD=%s
-                IDENTITY_INTERNAL_TOKEN=%s
-                """.formatted(secret(random), secret(random), secret(random), secret(random)));
+        List<Path> created = new ArrayList<>();
+        try {
+            write(directory.resolve("jwt-private.pem"), pem("PRIVATE KEY", keys.getPrivate().getEncoded()), created);
+            write(directory.resolve("jwt-public.pem"), pem("PUBLIC KEY", keys.getPublic().getEncoded()), created);
+            write(directory.resolve("compose.env"), """
+                    BANKING_DB_PASSWORD=%s
+                    IDENTITY_DB_PASSWORD=%s
+                    NOTIFICATION_DB_PASSWORD=%s
+                    IDENTITY_INTERNAL_TOKEN=%s
+                    """.formatted(secret(random), secret(random), secret(random), secret(random)), created);
+        } catch (IOException | RuntimeException failure) {
+            for (Path file : created.reversed()) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException | RuntimeException cleanupFailure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+            }
+            throw failure;
+        }
     }
 
     private static String secret(SecureRandom random) {
@@ -46,10 +60,14 @@ public class GenerateDevSecrets {
         return "-----BEGIN " + type + "-----\n" + body + "\n-----END " + type + "-----\n";
     }
 
-    private static void write(Path file, String content) throws IOException {
-        Files.writeString(file, content, StandardCharsets.US_ASCII, StandardOpenOption.CREATE_NEW);
-        if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
-            Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
+    private static void write(Path file, String content, List<Path> created) throws IOException {
+        if (Files.getFileStore(file.getParent()).supportsFileAttributeView("posix")) {
+            Files.createFile(file, PosixFilePermissions.asFileAttribute(
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)));
+        } else {
+            Files.createFile(file);
         }
+        created.add(file);
+        Files.writeString(file, content, StandardCharsets.US_ASCII, StandardOpenOption.WRITE);
     }
 }

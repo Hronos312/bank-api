@@ -15,7 +15,6 @@ import ru.bankapi.model.OutboxEvent;
 import ru.bankapi.observability.CorrelationFilter;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,11 +26,6 @@ public class OutboxService {
 
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public UUID record(String eventKey, String eventType, Map<String, Object> payload) {
-        return saveEvent(UUID.randomUUID(), eventKey, eventType, new HashMap<>(payload));
-    }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public UUID recordBankTransaction(BankTransaction transaction) {

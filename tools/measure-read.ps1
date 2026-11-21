@@ -43,5 +43,6 @@ if ($successful.Count -eq 0) { throw 'Измерение не получило �
     Errors = $Samples - $successful.Count
     P50Milliseconds = [Math]::Round($successful[[Math]::Ceiling($successful.Count * .50) - 1].Milliseconds, 2)
     P95Milliseconds = [Math]::Round($successful[[Math]::Ceiling($successful.Count * .95) - 1].Milliseconds, 2)
-    RequestsPerSecond = [Math]::Round($Samples / $wall.Elapsed.TotalSeconds, 1)
+    AttemptedRequestsPerSecond = [Math]::Round($Samples / $wall.Elapsed.TotalSeconds, 1)
+    SuccessfulRequestsPerSecond = [Math]::Round($successful.Count / $wall.Elapsed.TotalSeconds, 1)
 }

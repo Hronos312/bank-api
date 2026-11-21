@@ -42,7 +42,7 @@ class CardControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void issueCardShouldReturnCreated() throws Exception {
@@ -50,7 +50,7 @@ class CardControllerTest {
 
         when(cardService.issueCard(
                 10L,
-                "ivan@example.com"
+                "1"
         )).thenReturn(response);
 
         mockMvc.perform(
@@ -81,13 +81,13 @@ class CardControllerTest {
         verify(cardService)
                 .issueCard(
                         10L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getCardsShouldReturnCurrentUserCards()
@@ -104,7 +104,7 @@ class CardControllerTest {
         );
         second.setStatus(CardStatus.ACTIVE);
 
-        when(cardService.getCards("ivan@example.com"))
+        when(cardService.getCards("1"))
                 .thenReturn(List.of(first, second));
 
         mockMvc.perform(get("/api/cards"))
@@ -131,12 +131,12 @@ class CardControllerTest {
                 );
 
         verify(cardService)
-                .getCards("ivan@example.com");
+                .getCards("1");
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getCardShouldReturnCurrentUserCard()
@@ -146,7 +146,7 @@ class CardControllerTest {
 
         when(cardService.getCard(
                 20L,
-                "ivan@example.com"
+                "1"
         )).thenReturn(response);
 
         mockMvc.perform(get("/api/cards/20"))
@@ -171,13 +171,13 @@ class CardControllerTest {
         verify(cardService)
                 .getCard(
                         20L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getCardShouldReturnNotFoundWhenCardDoesNotExist()
@@ -185,7 +185,7 @@ class CardControllerTest {
 
         when(cardService.getCard(
                 99L,
-                "ivan@example.com"
+                "1"
         )).thenThrow(
                 new NotFoundException("Карта не найдена")
         );
@@ -204,13 +204,13 @@ class CardControllerTest {
         verify(cardService)
                 .getCard(
                         99L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void issueCardShouldReturnConflictWhenAccountAlreadyHasCard()
@@ -218,7 +218,7 @@ class CardControllerTest {
 
         when(cardService.issueCard(
                 10L,
-                "ivan@example.com"
+                "1"
         )).thenThrow(
                 new InvalidOperationException(
                         "К этому счёту уже выпущена карта"
@@ -243,7 +243,7 @@ class CardControllerTest {
         verify(cardService)
                 .issueCard(
                         10L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 

@@ -21,8 +21,8 @@ public class ReportService {
     private final IdentityDirectory identityDirectory;
 
     @Transactional(readOnly = true)
-    public SpendingReportResponse getSpendingReport(String email) {
-        UserIdentity user = identityDirectory.findByUsername(email)
+    public SpendingReportResponse getSpendingReport(String subject) {
+        UserIdentity user = identityDirectory.findBySubject(subject)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         BigDecimal withdrawals = transactionRepository.sumBySourceUserIdAndType(user.id(), TransactionType.WITHDRAWAL);

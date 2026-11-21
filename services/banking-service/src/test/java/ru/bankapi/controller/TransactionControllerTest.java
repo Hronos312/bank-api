@@ -49,7 +49,7 @@ class TransactionControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void depositShouldReturnOk() throws Exception {
@@ -64,7 +64,7 @@ class TransactionControllerTest {
 
         when(transactionService.deposit(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(MoneyOperationRequest.class)
         )).thenReturn(response);
 
@@ -102,14 +102,14 @@ class TransactionControllerTest {
         verify(transactionService)
                 .deposit(
                         eq(10L),
-                        eq("ivan@example.com"),
+                        eq("1"),
                         any(MoneyOperationRequest.class)
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void withdrawShouldReturnOk() throws Exception {
@@ -123,7 +123,7 @@ class TransactionControllerTest {
 
         when(transactionService.withdraw(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(MoneyOperationRequest.class)
         )).thenReturn(response);
 
@@ -158,7 +158,7 @@ class TransactionControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void depositShouldReturnBadRequestWhenAmountIsZero()
@@ -186,7 +186,7 @@ class TransactionControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void withdrawShouldReturnBadRequestWhenAmountIsMissing()
@@ -214,7 +214,7 @@ class TransactionControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void withdrawShouldReturnConflictWhenBalanceIsInsufficient()
@@ -222,7 +222,7 @@ class TransactionControllerTest {
 
         when(transactionService.withdraw(
                 eq(10L),
-                eq("ivan@example.com"),
+                eq("1"),
                 any(MoneyOperationRequest.class)
         )).thenThrow(
                 new InvalidOperationException(
@@ -252,7 +252,7 @@ class TransactionControllerTest {
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getTransactionHistoryShouldReturnOk()
@@ -278,7 +278,7 @@ class TransactionControllerTest {
 
         when(transactionService.getTransactionHistory(
                 10L,
-                "ivan@example.com"
+                "1"
         )).thenReturn(List.of(first, second));
 
         mockMvc.perform(
@@ -325,13 +325,13 @@ class TransactionControllerTest {
         verify(transactionService)
                 .getTransactionHistory(
                         10L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getTransactionHistoryShouldReturnEmptyList()
@@ -339,7 +339,7 @@ class TransactionControllerTest {
 
         when(transactionService.getTransactionHistory(
                 10L,
-                "ivan@example.com"
+                "1"
         )).thenReturn(List.of());
 
         mockMvc.perform(
@@ -354,13 +354,13 @@ class TransactionControllerTest {
         verify(transactionService)
                 .getTransactionHistory(
                         10L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 
     @Test
     @WithMockUser(
-            username = "ivan@example.com",
+            username = "1",
             roles = "CLIENT"
     )
     void getTransactionHistoryShouldReturnNotFoundWhenAccountIsUnavailable()
@@ -368,7 +368,7 @@ class TransactionControllerTest {
 
         when(transactionService.getTransactionHistory(
                 99L,
-                "ivan@example.com"
+                "1"
         )).thenThrow(
                 new NotFoundException(
                         "Счёт не найден"
@@ -391,7 +391,7 @@ class TransactionControllerTest {
         verify(transactionService)
                 .getTransactionHistory(
                         99L,
-                        "ivan@example.com"
+                        "1"
                 );
     }
 }
